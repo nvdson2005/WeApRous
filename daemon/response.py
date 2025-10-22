@@ -158,14 +158,22 @@ class Response():
                 base_dir = BASE_DIR+"static/"
             elif sub_type == 'html':
                 base_dir = BASE_DIR+"www/"
+            elif sub_type == 'csv':
+                base_dir = BASE_DIR+"csv/"
+            elif sub_type == 'xml':
+                base_dir = BASE_DIR+"xml/"
             else:
                 handle_text_other(sub_type)
+                raise ValueError("Invalid text type: sub_type={}".format(sub_type))
         elif main_type == 'image':
             base_dir = BASE_DIR+"static/"
             self.headers['Content-Type']='image/{}'.format(sub_type)
         elif main_type == 'application':
             base_dir = BASE_DIR+"apps/"
             self.headers['Content-Type']='application/{}'.format(sub_type)
+        elif main_type == 'video':
+            base_dir = BASE_DIR+"videos/"
+            self.headers['Content-Type']='video/{}'.format(sub_type)
         #
         #  TODO: process other mime_type
         #        application/xml       
@@ -201,6 +209,8 @@ class Response():
             #  TODO: implement the step of fetch the object file
             #        store in the return value of content
             #
+        with open(filepath, 'rb') as f:
+            content = f.read()
         return len(content), content
 
 

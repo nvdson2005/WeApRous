@@ -116,6 +116,9 @@ class Request():
             #
             #  TODO: implement the cookie function here
             #        by parsing the header            #
+        if cookies != '':
+            self.cookies = cookies
+            self.prepare_cookies(cookies)
 
         return
 
@@ -125,7 +128,9 @@ class Request():
         #
         # TODO prepare the request authentication
         #
-	# self.auth = ...
+        # self.auth = ...
+        auth = self.headers.get("auth", "")
+        self.prepare_auth(auth, self.url)
         return
 
 
@@ -146,4 +151,4 @@ class Request():
         return
 
     def prepare_cookies(self, cookies):
-            self.headers["Cookie"] = cookies
+        self.headers["Cookie"] = cookiess

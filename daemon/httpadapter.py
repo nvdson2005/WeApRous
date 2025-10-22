@@ -19,7 +19,7 @@ http settings (headers, bodies). The adapter supports both
 raw URL paths and RESTful route definitions, and integrates with
 Request and Response objects to handle client-server communication.
 """
-
+from .database import login_user
 from .request import Request
 from .response import Response
 from .dictionary import CaseInsensitiveDict
@@ -228,4 +228,7 @@ class HttpAdapter:
         if username:
             headers["Proxy-Authorization"] = (username, password)
 
+        if login_user(username, password):
+            print("[HttpAdapter] Proxy authentication successful for user: {}".format(username))
+            headers["auth"] = true
         return headers

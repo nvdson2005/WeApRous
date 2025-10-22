@@ -90,10 +90,14 @@ def run_backend(ip, port, routes):
             #        using multi-thread programming with the
             #        provided handle_client routine
             #
+            # Update 22/10 for this TODO task here
+            new_thread = threading.Thread(target=handle_client, args=(ip, port, conn, addr, routes))
+            new_thread.start()
     except socket.error as e:
       print("Socket error: {}".format(e))
 
 def create_backend(ip, port, routes={}):
+
     """
     Entry point for creating and running the backend server.
 
