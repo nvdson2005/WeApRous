@@ -114,6 +114,7 @@ class Request():
             #
 
         self.headers = self.prepare_headers(request)
+        # self.body = self.prepare_body("", "", json=None)
         cookies = self.headers.get('cookie', '')
             #
             #  TODO: implement the cookie function here

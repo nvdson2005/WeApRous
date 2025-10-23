@@ -308,7 +308,8 @@ class Response():
             path = "login.html"
             mime_type = 'text/html'
         elif path.endswith('favicon.ico'):
-            base_dir = self.prepare_content_type(mime_type = 'image/png')
+            mime_type = 'image/x-icon'
+            base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
             self.headers['Content-Type']='image/x-icon'
         elif path.endswith('.html') or mime_type == 'text/html':
             base_dir = self.prepare_content_type(mime_type = 'text/html')
