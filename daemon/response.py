@@ -163,7 +163,7 @@ class Response():
             elif sub_type == 'xml':
                 base_dir = BASE_DIR+"xml/"
             else:
-                handle_text_other(sub_type)
+                # handle_text_other(sub_type)
                 raise ValueError("Invalid text type: sub_type={}".format(sub_type))
         elif main_type == 'image':
             base_dir = BASE_DIR+"static/"
@@ -256,6 +256,10 @@ class Response():
         # TODO prepare the request authentication
         #
 	# self.auth = ...
+        fmt_header = "HTTP/1.1 200 OK\r\n"
+        for k, v in headers.items():
+            fmt_header += "{}: {}\r\n".format(k, v)
+        fmt_header += "\r\n"
         return str(fmt_header).encode('utf-8')
 
 
@@ -288,17 +292,22 @@ class Response():
         """
 
         path = request.path
-
+        print("[Response] building response for path {}".format(path))
         mime_type = self.get_mime_type(path)
         print("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
 
         base_dir = ""
 
         #If HTML, parse and serve embedded objects
-        if path.endswith('.html') or mime_type == 'text/html':
+        if path.endswith('favicon.ico'):
+            base_dir = self.prepare_content_type(mime_type = 'image/png')
+            self.headers['Content-Type']='image/x-icon'
+        elif path.endswith('.html') or mime_type == 'text/html':
             base_dir = self.prepare_content_type(mime_type = 'text/html')
         elif mime_type == 'text/css':
             base_dir = self.prepare_content_type(mime_type = 'text/css')
+        elif mime_type == 'image/png' or mime_type == 'image/jpeg' or mime_type == 'image/gif' or mime_type == 'image/x-icon':
+            base_dir = self.prepare_content_type(mime_type='image/png')
         #
         # TODO: add support objects
         #

@@ -67,10 +67,12 @@ class Request():
         self.hook = None
 
     def extract_request_line(self, request):
+        # print("[DEBUG] Raw request:" + repr(request))
         try:
             lines = request.splitlines()
             first_line = lines[0]
             method, path, version = first_line.split()
+            # print("[Request] Extracted request line METHOD {} PATH {} VERSION {}".format(method, path, version))
 
             if path == '/':
                 path = '/index.html'
@@ -151,4 +153,4 @@ class Request():
         return
 
     def prepare_cookies(self, cookies):
-        self.headers["Cookie"] = cookiess
+        self.headers["Cookie"] = cookies
