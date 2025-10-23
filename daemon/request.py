@@ -67,7 +67,7 @@ class Request():
         self.hook = None
 
     def extract_request_line(self, request):
-        # print("[DEBUG] Raw request:" + repr(request))
+        print("[DEBUG] Raw request:" + repr(request))
         try:
             lines = request.splitlines()
             first_line = lines[0]

@@ -131,7 +131,11 @@ class Response():
         try:
             mime_type, _ = mimetypes.guess_type(path)
         except Exception:
-            return 'application/octet-stream'
+            mime_type = None
+        
+        if mime_type is None:
+            if path.endswith('.html') or path == "/" or path == "/index.html" or path == "/login":
+                mime_type = 'text/html'
         return mime_type or 'application/octet-stream'
 
 
@@ -299,7 +303,11 @@ class Response():
         base_dir = ""
 
         #If HTML, parse and serve embedded objects
-        if path.endswith('favicon.ico'):
+        if path == "/login" and request.method == "GET":
+            base_dir = self.prepare_content_type(mime_type = 'text/html')
+            path = "login.html"
+            mime_type = 'text/html'
+        elif path.endswith('favicon.ico'):
             base_dir = self.prepare_content_type(mime_type = 'image/png')
             self.headers['Content-Type']='image/x-icon'
         elif path.endswith('.html') or mime_type == 'text/html':
