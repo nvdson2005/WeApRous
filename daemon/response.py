@@ -328,28 +328,36 @@ class Response():
                     self.headers['Set-Cookie'] = hook_result['set_cookie']
                     path = hook_result['content_path']
                     mime_type = self.get_mime_type(path)
+                    base_dir = self.prepare_content_type(mime_type = mime_type)
                 else:
                     return self.build_unauthorized()
-        #If HTML, parse and serve embedded objects
-        if (path == "/login" or path == "login.html") and request.method == "GET":
-            base_dir = self.prepare_content_type(mime_type = 'text/html')
-            path = "login.html"
-            mime_type = 'text/html'
-        elif path.endswith('favicon.ico'):
-            mime_type = 'image/x-icon'
-            base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
-            self.headers['Content-Type']='image/x-icon'
-        elif path.endswith('.html') or mime_type == 'text/html':
-            base_dir = self.prepare_content_type(mime_type = 'text/html')
-        elif mime_type == 'text/css':
-            base_dir = self.prepare_content_type(mime_type = 'text/css')
-        elif mime_type == 'image/png' or mime_type == 'image/jpeg' or mime_type == 'image/gif' or mime_type == 'image/x-icon':
-            base_dir = self.prepare_content_type(mime_type='image/png')
-        #
-        # TODO: add support objects
-        #
         else:
-            return self.build_notfound()
+            #If HTML, parse and serve embedded objects
+            if (path == "/login" or path == "login.html") and request.method == "GET":
+                base_dir = self.prepare_content_type(mime_type = 'text/html')
+                path = "login.html"
+                mime_type = 'text/html'
+            elif path == "/" or path == "/index.html":
+                if request.cookies != 'auth=true':
+                    return self.build_unauthorized()
+                base_dir = self.prepare_content_type(mime_type = 'text/html')
+                path = "index.html"
+                mime_type = 'text/html'
+            elif path.endswith('favicon.ico'):
+                mime_type = 'image/x-icon'
+                base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
+                self.headers['Content-Type']='image/x-icon'
+            elif path.endswith('.html') or mime_type == 'text/html':
+                base_dir = self.prepare_content_type(mime_type = 'text/html')
+            elif mime_type == 'text/css':
+                base_dir = self.prepare_content_type(mime_type = 'text/css')
+            elif mime_type == 'image/png' or mime_type == 'image/jpeg' or mime_type == 'image/gif' or mime_type == 'image/x-icon':
+                base_dir = self.prepare_content_type(mime_type='image/png')
+            #
+            # TODO: add support objects
+            #
+            else:
+                return self.build_notfound()
 
         c_len, self._content = self.build_content(path, base_dir)
         self._header = self.build_response_header(request)
