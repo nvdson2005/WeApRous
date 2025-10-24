@@ -54,11 +54,13 @@ def login(headers="guest", body="anonymous"):
     if login_user(username, password):
         return {
             'content_path': '/index.html',
+            'redirect': '/index.html',
             'set_cookie': 'auth=true'
         }
     else:
         return {
             'content_path': '/login.html',
+            'redirect': '/login.html',
             'set_cookie': 'auth=false'
         }
     # print("[SampleApp] Logging in {} to {}".format(headers, body))

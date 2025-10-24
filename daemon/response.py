@@ -251,6 +251,9 @@ class Response():
                 "User-Agent": "{}".format(reqhdr.get("User-Agent", "Chrome/123.0.0.0")),
             }
 
+        for k, v in rsphdr.items():
+            headers[k] = v
+
         # Header text alignment
             #
             #  TODO: implement the header building to create formated
@@ -322,13 +325,13 @@ class Response():
         if hook_result is not None:
             if 'set_cookie' in hook_result:
                 if hook_result['set_cookie'] == 'auth=true':
+                    self.headers['Set-Cookie'] = hook_result['set_cookie']
                     path = hook_result['content_path']
                     mime_type = self.get_mime_type(path)
-                    self.headers['Set-Cookie'] = hook_result['set_cookie']
                 else:
                     return self.build_unauthorized()
         #If HTML, parse and serve embedded objects
-        if path == "/login" and request.method == "GET":
+        if (path == "/login" or path == "login.html") and request.method == "GET":
             base_dir = self.prepare_content_type(mime_type = 'text/html')
             path = "login.html"
             mime_type = 'text/html'
