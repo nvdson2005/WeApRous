@@ -104,18 +104,20 @@ class HttpAdapter:
 
         # Handle the request
         msg = conn.recv(1024).decode()
+        # print("MSG: ", msg)
         req.prepare(msg, routes)
-        print("HOOK: ", req.hook)
+        # print("HOOK: ", req.hook)
         # Handle request hook
+        hook_result = None
         if req.hook:
             print("[HttpAdapter] hook in route-path METHOD {} PATH {}".format(req.hook._route_path,req.hook._route_methods))
-            req.hook(headers = req.headers, body = req.body)
+            hook_result = req.hook(headers = req.headers, body = req.body)
             #
             # TODO: handle for App hook here
             #
 
         # Build response
-        response = resp.build_response(req)
+        response = resp.build_response(req, hook_result) if hook_result is not None else resp.build_response(req)
 
         #print(response)
         conn.sendall(response)

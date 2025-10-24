@@ -5,7 +5,7 @@ This is a customized module for easily managing user credentials
 """
 import csv
 
-DATABASE_FILE = '../db/database.csv'
+DATABASE_FILE = 'db/database.csv'
 def register_user(username, password):
     if check_user_exists(username):
         print("[ABORT]: User already exists.")

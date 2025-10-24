@@ -285,8 +285,25 @@ class Response():
                 "404 Not Found"
             ).encode('utf-8')
 
+    def build_unauthorized(self):
+        """
+        Constructs a standard 401 Unauthorized HTTP response.
 
-    def build_response(self, request):
+        :rtype bytes: Encoded 401 response.
+        """
+
+        return (
+                "HTTP/1.1 401 Unauthorized\r\n"
+                "WWW-Authenticate: Basic realm=\"Access to the site\"\r\n"
+                "Content-Type: text/html\r\n"
+                "Content-Length: 16\r\n"
+                "Cache-Control: max-age=86000\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "401 Unauthorized"
+            ).encode('utf-8')
+
+    def build_response(self, request, hook_result=None):
         """
         Builds a full HTTP response including headers and content based on the request.
 
@@ -302,6 +319,14 @@ class Response():
 
         base_dir = ""
 
+        if hook_result is not None:
+            if 'set_cookie' in hook_result:
+                if hook_result['set_cookie'] == 'auth=true':
+                    path = hook_result['content_path']
+                    mime_type = self.get_mime_type(path)
+                    self.headers['Set-Cookie'] = hook_result['set_cookie']
+                else:
+                    return self.build_unauthorized()
         #If HTML, parse and serve embedded objects
         if path == "/login" and request.method == "GET":
             base_dir = self.prepare_content_type(mime_type = 'text/html')

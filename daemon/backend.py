@@ -76,6 +76,16 @@ def run_backend(ip, port, routes):
     """
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+    # ==================================
+    # Normally, when the program is stopped, the socket is not released immediately.
+    # It is kept in TIME_WAIT state for a while (about 1-4 minutes).
+    # Setting the SO_REUSEADDR option to 1
+    # allows the socket to be reused immediately after the program is stopped.
+    # THE LINE BELOW SHOULD BE KEPT IN DEVELOPMENT AND TESTING PHASES ONLY.
+    # ==================================
+
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    #============================================
     try:
         server.bind((ip, port))
         server.listen(50)

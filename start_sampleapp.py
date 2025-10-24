@@ -27,7 +27,7 @@ and can be configured via command-line arguments.
 import json
 import socket
 import argparse
-
+from daemon.database import login_user
 from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
@@ -45,7 +45,23 @@ def login(headers="guest", body="anonymous"):
     :param headers (str): The request headers or user identifier.
     :param body (str): The request body or login payload.
     """
-    print("[SampleApp] Logging in {} to {}".format(headers, body))
+    body_split = body.split('&', 1)
+    username = body_split[0].split('=')[1]
+    password = body_split[1].split('=')[1]
+
+    print("[SampleApp] Login handle for user: {} with password: {}".format(username, password))
+    print("Login status: ", login_user(username, password))
+    if login_user(username, password):
+        return {
+            'content_path': '/index.html',
+            'set_cookie': 'auth=true'
+        }
+    else:
+        return {
+            'content_path': '/login.html',
+            'set_cookie': 'auth=false'
+        }
+    # print("[SampleApp] Logging in {} to {}".format(headers, body))
 
 @app.route('/hello', methods=['PUT'])
 def hello(headers, body):

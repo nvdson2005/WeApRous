@@ -123,22 +123,25 @@ class Request():
             self.cookies = cookies
             self.prepare_cookies(cookies)
 
+        body_pattern = '\r\n\r\n'
+        body = request.split(body_pattern, 1)[1] if body_pattern in request else ''
+        self.prepare_body(body, files=None, json=None)
         return
 
     def prepare_body(self, data, files, json=None):
-        self.prepare_content_length(self.body)
-        self.body = body
+        self.prepare_content_length(data)
+        self.body = data 
         #
         # TODO prepare the request authentication
         #
         # self.auth = ...
-        auth = self.headers.get("auth", "")
-        self.prepare_auth(auth, self.url)
+        # auth = self.headers.get("auth", "")
+        # self.prepare_auth(auth, self.url)
         return
 
 
     def prepare_content_length(self, body):
-        self.headers["Content-Length"] = "0"
+        self.headers["Content-Length"] = str(body.encode('utf-8')) 
         #
         # TODO prepare the request authentication
         #
