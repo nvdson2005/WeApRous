@@ -306,6 +306,33 @@ class Response():
                 "401 Unauthorized"
             ).encode('utf-8')
 
+    def build_redirect(self, location, has_cookie = False):
+        """
+        Constructs a standard 302 Redirect HTTP response.
+
+        :params location (str): URL to redirect to.
+        :params has_cookie (bool): Whether to include a Set-Cookie header.
+
+        :rtype bytes: Encoded 302 response.
+        """
+
+        header = (
+                "HTTP/1.1 302 Found\r\n"
+                "Location: {}\r\n"
+                "Content-Type: text/html\r\n"
+                "Content-Length: 13\r\n"
+                "Cache-Control: max-age=86000\r\n"
+            ).format(location)
+
+        if has_cookie:
+            header += "Set-Cookie: auth=true\r\n"
+
+        header += "Connection: close\r\n\r\n"
+
+        body = "302 Found"
+
+        return (header + body).encode('utf-8')
+
     def build_response(self, request, hook_result=None):
         """
         Builds a full HTTP response including headers and content based on the request.
@@ -325,10 +352,11 @@ class Response():
         if hook_result is not None:
             if 'set_cookie' in hook_result:
                 if hook_result['set_cookie'] == 'auth=true':
-                    self.headers['Set-Cookie'] = hook_result['set_cookie']
-                    path = hook_result['content_path']
-                    mime_type = self.get_mime_type(path)
-                    base_dir = self.prepare_content_type(mime_type = mime_type)
+                    return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
+                    # self.headers['Set-Cookie'] = hook_result['set_cookie']
+                    # path = hook_result['content_path']
+                    # mime_type = self.get_mime_type(path)
+                    # base_dir = self.prepare_content_type(mime_type = mime_type)
                 else:
                     return self.build_unauthorized()
         else:
