@@ -34,6 +34,8 @@ PORT = 8000  # Default port
 
 app = WeApRous()
 
+active_peers = []
+
 @app.route('/login', methods=['POST'])
 def login(headers="guest", body="anonymous"):
     """
@@ -52,6 +54,17 @@ def login(headers="guest", body="anonymous"):
     print("[SampleApp] Login handle for user: {} with password: {}".format(username, password))
     print("Login status: ", login_user(username, password))
     if login_user(username, password):
+        connection_ip = headers.get('x-connection-ip')
+        connection_port = headers.get('x-connection-port')
+        if connection_ip is not None and connection_port is not None:
+            submit_info(connection_ip, connection_port, username)
+        else:
+            print("[SampleApp] Missing connection IP/Port in headers")
+            return {
+            'content_path': '/login.html',
+            'redirect': '/login.html',
+            'set_cookie': 'auth=false'
+            }
         return {
             'content_path': '/index.html',
             'redirect': '/index.html',
@@ -64,6 +77,45 @@ def login(headers="guest", body="anonymous"):
             'set_cookie': 'auth=false'
         }
     # print("[SampleApp] Logging in {} to {}".format(headers, body))
+
+@app.route('/submit-info', methods=['POST'])
+def submit_info(ip, port, username):
+    """
+    Handle submission of user information via POST request.
+
+    This route simulates tracking user information such as IP, port, username,
+    and status. It prints the provided information to the console.
+
+    :param ip (str): The IP address of the user.
+    :param port (str): The port number of the user.
+    :param username (str): The username of the user.
+    :param status (str): The status of the user (e.g., 'online', 'offline').
+    """
+    print("[SampleApp] Submit info: IP={}, Port={}, Username={}".format(
+        ip, port, username
+    ))
+    active_peers.append({
+        'ip': ip,
+        'port': port,
+        'username': username
+    })
+    print("Current active peers: ", active_peers)
+
+@app.route('/get-list', methods=['GET'])
+def get_list(headers, body):
+    """
+    Handle retrieval of the active peers list via GET request.
+
+    This route returns the current list of active peers as a JSON response.
+
+    :param headers (str): The request headers.
+    :param body (str): The request body.
+    :rtype: dict - A dictionary containing the list of active peers.
+    """
+    print("[SampleApp] Get list called with headers: {} and body: {}".format(headers, body))
+    return_data = ""
+    return_data = json.dumps(active_peers)
+    return return_data
 
 @app.route('/hello', methods=['PUT'])
 def hello(headers, body):

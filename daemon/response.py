@@ -332,6 +332,27 @@ class Response():
         body = "302 Found"
 
         return (header + body).encode('utf-8')
+    
+    def build_json_response(self, data):
+        """
+        Constructs a JSON HTTP response.
+
+        :params data (str): JSON string to include in the response body.
+
+        :rtype bytes: Encoded JSON response.
+        """
+
+        body = data.encode('utf-8')
+        header = (
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: {}\r\n"
+                "Cache-Control: no-cache\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            ).format(len(body))
+
+        return (header.encode('utf-8') + body)
 
     def build_response(self, request, hook_result=None):
         """
@@ -349,6 +370,9 @@ class Response():
 
         base_dir = ""
 
+        if path == "/get-list":
+            if request.method == "GET":
+                return self.build_json_response(hook_result)
         if hook_result is not None:
             if 'set_cookie' in hook_result:
                 if hook_result['set_cookie'] == 'auth=true':

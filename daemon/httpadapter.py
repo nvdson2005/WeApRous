@@ -97,6 +97,7 @@ class HttpAdapter:
         self.conn = conn        
         # Connection address.
         self.connaddr = addr
+        print("[HttpAdapter] Handling client from {}:{}".format(addr[0], addr[1]))
         # Request handler
         req = self.request
         # Response handler
@@ -106,11 +107,14 @@ class HttpAdapter:
         msg = conn.recv(1024).decode()
         # print("MSG: ", msg)
         req.prepare(msg, routes)
+        # Add connection address to request headers
+        req.headers['x-connection-ip'] = addr[0]  # IP address
+        req.headers['x-connection-port'] = str(addr[1])  # Port number
         # print("HOOK: ", req.hook)
         # Handle request hook
         hook_result = None
         if req.hook:
-            print("[HttpAdapter] hook in route-path METHOD {} PATH {}".format(req.hook._route_path,req.hook._route_methods))
+            # print("[HttpAdapter] hook in route-path METHOD {} PATH {}".format(req.hook._route_path,req.hook._route_methods))
             hook_result = req.hook(headers = req.headers, body = req.body)
             #
             # TODO: handle for App hook here
