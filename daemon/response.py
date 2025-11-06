@@ -270,23 +270,23 @@ class Response():
         return str(fmt_header).encode('utf-8')
 
 
-    def build_notfound(self):
+    def build_notfound_with_json(self, body):
         """
         Constructs a standard 404 Not Found HTTP response.
 
         :rtype bytes: Encoded 404 response.
         """
-
-        return (
+        body = body.encode('utf-8')
+        header = (
                 "HTTP/1.1 404 Not Found\r\n"
-                "Accept-Ranges: bytes\r\n"
-                "Content-Type: text/html\r\n"
-                "Content-Length: 13\r\n"
-                "Cache-Control: max-age=86000\r\n"
+                "Content-Type: application/json\r\n"
+                "Content-Length: {}\r\n"
+                "Cache-Control: no-cache\r\n"
                 "Connection: close\r\n"
                 "\r\n"
-                "404 Not Found"
-            ).encode('utf-8')
+            ).format(len(body))
+
+        return (header.encode('utf-8') + body)
 
     def build_unauthorized(self):
         """
@@ -333,6 +333,23 @@ class Response():
 
         return (header + body).encode('utf-8')
     
+    def build_internal_server_error(self):
+        """
+        Constructs a standard 500 Internal Server Error HTTP response.
+
+        :rtype bytes: Encoded 500 response.
+        """
+
+        return (
+                "HTTP/1.1 500 Internal Server Error\r\n"
+                "Content-Type: text/html\r\n"
+                "Content-Length: 25\r\n"
+                "Cache-Control: max-age=86000\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "500 Internal Server Error"
+            ).encode('utf-8')
+    
     def build_json_response(self, data):
         """
         Constructs a JSON HTTP response.
@@ -353,6 +370,22 @@ class Response():
             ).format(len(body))
 
         return (header.encode('utf-8') + body)
+    
+    def build_notfound(self):
+        """
+        Constructs a standard 404 Not Found HTTP response.
+
+        :rtype bytes: Encoded 404 response.
+        """
+
+        return (
+                "HTTP/1.1 404 Not Found\r\n"
+                "Content-Type: text/plain\r\n"
+                "Content-Length: 13\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+                "404 Not Found"
+            ).encode('utf-8')
 
     def build_response(self, request, hook_result=None):
         """
@@ -370,9 +403,71 @@ class Response():
 
         base_dir = ""
 
+        if path == "/get-received-messages" or path == "/get-connected-peers":
+            if request.method == "GET":
+                return self.build_json_response(hook_result)
+        if path == "/login":
+            if request.method == "GET":
+                base_dir = self.prepare_content_type(mime_type = 'text/html')
+                path = "login.html"
+                mime_type = 'text/html'
+            elif request.method == "POST":
+                if hook_result is not None:
+                    if 'set_cookie' in hook_result:
+                        if hook_result['set_cookie'] == 'auth=true':
+                            if 'chosen_peer' in hook_result and hook_result['chosen_peer'] is not None:
+                                return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
+                            else:
+                                return self.build_internal_server_error()
+                        else:
+                            return self.build_unauthorized()
+                else:
+                    return self.build_internal_server_error()
+        if path == "/register-peer-pool":
+            if hook_result is not None:
+                if hook_result == True:
+                    return self.build_json_response('{"status": "success"}')
+                elif hook_result == False:
+                    return self.build_internal_server_error()
+            else:
+                return self.build_internal_server_error()
         if path == "/get-list":
             if request.method == "GET":
                 return self.build_json_response(hook_result)
+        if path == "/submit-info":
+            if hook_result is not None:
+                if hook_result == True:
+                    return self.build_json_response('{"status": "success"}')
+                elif hook_result == False:
+                    return self.build_json_response('{"status": "failure"}')
+            else:
+                return self.build_internal_server_error()
+        if path == "/connect-peer":
+            if hook_result is not None:
+                if 'status' in hook_result:
+                    if hook_result['status'] == 'success':
+                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+                    else:
+                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
+            else:
+                return self.build_internal_server_error()
+        if path == "/send-peer":
+            if hook_result is not None:
+                if 'status' in hook_result:
+                    if hook_result['status'] == 'success':
+                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+                    else:
+                        # return self.build_notfound_with_json('{"status": "error", "message": "%s"}' % hook_result['message'])
+                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
+            else:
+                return self.build_internal_server_error()
+        if path == "/receive-message":
+            if hook_result is not None:
+                if 'status' in hook_result:
+                    if hook_result['status'] == 'success':
+                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+                    else:
+                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
         if hook_result is not None:
             if 'set_cookie' in hook_result:
                 if hook_result['set_cookie'] == 'auth=true':

@@ -140,7 +140,6 @@ def handle_client(ip, port, conn, addr, routes):
     """
 
     request = conn.recv(1024).decode()
-
     # Extract hostname
     for line in request.splitlines():
         if line.lower().startswith('host:'):
