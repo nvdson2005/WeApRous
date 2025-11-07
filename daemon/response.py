@@ -25,6 +25,26 @@ import os
 import mimetypes
 from .dictionary import CaseInsensitiveDict
 
+# ANSI color log helpers
+ANSI_RED = "\033[31m"
+ANSI_YELLOW = "\033[33m"
+ANSI_GREEN = "\033[32m"
+ANSI_BLUE = "\033[34m"
+ANSI_RESET = "\033[0m"
+ANSI_BOLD = "\033[1m"
+
+def log_error(msg, *args):
+    print(f"{ANSI_RED}{ANSI_BOLD}[ERROR] {msg} {args}{ANSI_RESET}")
+
+def log_warning(msg, *args):
+    print(f"{ANSI_YELLOW}{ANSI_BOLD}[WARN] {msg} {args}{ANSI_RESET}")
+
+def log_info(msg, *args):
+    print(f"{ANSI_GREEN}{ANSI_BOLD}[INFO] {msg} {args}{ANSI_RESET}")
+
+def log_debug(msg, *args):
+    print(f"{ANSI_BLUE}{ANSI_BOLD}[DEBUG] {msg} {args}{ANSI_RESET}")
+
 BASE_DIR = ""
 
 class Response():   
@@ -155,7 +175,7 @@ class Response():
 
         # Processing mime_type based on main_type and sub_type
         main_type, sub_type = mime_type.split('/', 1)
-        print("[Response] processing MIME main_type={} sub_type={}".format(main_type,sub_type))
+        log_info("[Response] processing MIME main_type={} sub_type={}".format(main_type,sub_type))
         if main_type == 'text':
             self.headers['Content-Type']='text/{}'.format(sub_type)
             if sub_type == 'plain' or sub_type == 'css':
@@ -208,7 +228,7 @@ class Response():
 
         filepath = os.path.join(base_dir, path.lstrip('/'))
 
-        print("[Response] serving the object at location {}".format(filepath))
+        log_info("[Response] serving the object at location {}".format(filepath))
             #
             #  TODO: implement the step of fetch the object file
             #        store in the return value of content
@@ -397,12 +417,21 @@ class Response():
         """
 
         path = request.path
-        print("[Response] building response for path {}".format(path))
+        log_info("[Response] building response for path {}".format(path))
         mime_type = self.get_mime_type(path)
-        print("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
+        log_info("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
 
         base_dir = ""
 
+        if path == "/broadcast-peer" and request.method == "POST":
+            if hook_result is not None:
+                if 'status' in hook_result:
+                    if hook_result['status'] == 'success':
+                        return self.build_json_response('{"status": "success", "message": "Broadcast sent"}')
+                    else:
+                        return self.build_internal_server_error()
+            else:
+                return self.build_internal_server_error()
         if path == "/get-received-messages" or path == "/get-connected-peers":
             if request.method == "GET":
                 return self.build_json_response(hook_result)

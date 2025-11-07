@@ -118,6 +118,18 @@
     </div>
     <div class="status" id="sendMsgStatus"></div>
 
+    <!-- Broadcast Message Section -->
+    <h2>Broadcast Message to All Connected Peers</h2>
+    <div class="row">
+      <input
+        id="broadcastContent"
+        placeholder="broadcast message"
+        style="width: 220px"
+      />
+      <button id="broadcastMsgBtn">Broadcast</button>
+    </div>
+    <div class="status" id="broadcastMsgStatus"></div>
+
     <h2>Register this peer</h2>
     <p>
       Provide a username and the port your client will accept WebSocket
@@ -256,9 +268,7 @@
       }
 
       function renderConnectedPeers(peers) {
-        const tableBody = document.querySelector(
-          "#connectedPeersTable tbody"
-        );
+        const tableBody = document.querySelector("#connectedPeersTable tbody");
         tableBody.innerHTML = "";
         if (!peers || peers.length === 0) {
           tableBody.innerHTML =
@@ -286,10 +296,43 @@
         });
       }
 
+      // For sending messages
+      document
+        .getElementById("sendMsgBtn")
+        .addEventListener("click", async () => {
+          const ip = document.getElementById("msgPeerIp").value.trim();
+          const port = document.getElementById("msgPeerPort").value.trim();
+          const message = document.getElementById("msgContent").value.trim();
+          const statusEl = document.getElementById("sendMsgStatus");
+          if (!ip || !port || !message) {
+            statusEl.textContent = "IP, port, and message are required";
+            return;
+          }
+          const formdata = {
+            ip: ip,
+            port: port,
+            message: message,
+          };
+          try {
+            const body = new URLSearchParams(formdata).toString();
+            const res = await fetch("/send-peer", {
+              method: "POST",
+              body,
+            });
+            const text = await res.text();
+            statusEl.textContent = "Message sent. Server response: " + text;
+            appendLog(`Sent message to ${ip}:${port} - "${message}"`);
+          } catch (e) {
+            statusEl.textContent = "Error sending message";
+            appendLog("Error POST /send-message: " + e);
+          }
+        });
+
+      // Refresh buttons
       document
         .getElementById("refreshBtn")
         .addEventListener("click", fetchPeers);
-      
+
       document
         .getElementById("refreshConnectedBtn")
         .addEventListener("click", fetchConnectedPeers);
@@ -330,38 +373,12 @@
           .then((res) => res.text())
           .then((text) => {
             appendLog(`Server response from /connect-peer: ${text}`);
+            fetchConnectedPeers();
+            fetchPeers();
           })
           .catch((e) => {
             appendLog("Error POST /connect-peer: " + e);
           });
-        // const status = document.getElementById('connectStatus');
-        // if(!ip || !port){ status.textContent = 'target ip and port required'; return; }
-        // status.textContent = `Connecting to ws://${ip}:${port} ...`;
-        // appendLog(`Attempting ws://${ip}:${port}`);
-
-        // try{
-        //   const ws = new WebSocket(`ws://${ip}:${port}`);
-        //   ws.onopen = ()=> {
-        //     status.textContent = 'WebSocket connected';
-        //     appendLog('WebSocket open');
-        //     // send a simple hello
-        //     ws.send('hello from peers.html');
-        //   };
-        //   ws.onmessage = (ev)=> {
-        //     appendLog('Message: ' + ev.data);
-        //   };
-        //   ws.onerror = (ev)=> {
-        //     status.textContent = 'WebSocket error';
-        //     appendLog('WebSocket error: ' + JSON.stringify(ev));
-        //   };
-        //   ws.onclose = ()=> {
-        //     status.textContent = 'WebSocket closed';
-        //     appendLog('WebSocket closed');
-        //   };
-        // }catch(e){
-        //   status.textContent = 'Failed to create WebSocket: ' + e;
-        //   appendLog('WebSocket exception: ' + e);
-        // }
       }
 
       function appendLog(s) {
@@ -371,7 +388,7 @@
 
       // small helpers
       function escapeHtml(s) {
-        s = (s === undefined || s === null) ? "" : s.toString();
+        s = s === undefined || s === null ? "" : s.toString();
         return (s || "").replace(
           /[&<>"']/g,
           (c) =>
@@ -385,10 +402,15 @@
         );
       }
       function escapeAttr(s) {
-        s = (s === undefined || s === null) ? "" : s.toString();
+        s = s === undefined || s === null ? "" : s.toString();
         return (s || "").replace(/"/g, "&quot;");
       }
 
+      function decodeHtml(s) {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = s;
+        return txt.value;
+      }
       async function fetchReceivedMessages() {
         try {
           const res = await fetch("/get-received-messages");
@@ -401,6 +423,8 @@
           }
           // Clear log and append each message
           msgs.forEach((msg) => {
+            msg.message = decodeHtml(msg.message);
+            msg.message = msg.message.replace(/\+/g, " ");
             appendLog(
               `Message from ${msg.sender_ip}:${msg.sender_port} - ${msg.message}`
             );
@@ -409,6 +433,36 @@
           // Optionally log error
         }
       }
+
+      // Broadcast message
+      document
+        .getElementById("broadcastMsgBtn")
+        .addEventListener("click", async () => {
+          const message = document
+            .getElementById("broadcastContent")
+            .value.trim();
+          const statusEl = document.getElementById("broadcastMsgStatus");
+          if (!message) {
+            statusEl.textContent = "Message is required";
+            return;
+          }
+          const body = {
+            message: message,
+          }
+          try {
+            const res = await fetch("/broadcast-peer", {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: JSON.stringify(body),
+            });
+            const text = await res.text();
+            statusEl.textContent = "Broadcast sent. Server response: " + text;
+            appendLog(`Broadcasted message: "${message}"`);
+          } catch (e) {
+            statusEl.textContent = "Error broadcasting message";
+            appendLog("Error POST /broadcast-peer: " + e);
+          }
+        });
 
       // Poll every 3 seconds for new messages
       setInterval(fetchReceivedMessages, 3000);

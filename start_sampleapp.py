@@ -41,6 +41,26 @@ received_messages = {}
 
 TRACKER_IP = "127.0.0.1:8080"
 
+# ANSI color log helpers
+ANSI_RED = "\033[31m"
+ANSI_YELLOW = "\033[33m"
+ANSI_GREEN = "\033[32m"
+ANSI_BLUE = "\033[34m"
+ANSI_RESET = "\033[0m"
+ANSI_BOLD = "\033[1m"
+
+def log_error(msg, *args):
+    print(f"{ANSI_RED}{ANSI_BOLD}[ERROR] {msg} {args}{ANSI_RESET}")
+
+def log_warning(msg, *args):
+    print(f"{ANSI_YELLOW}{ANSI_BOLD}[WARN] {msg} {args}{ANSI_RESET}")
+
+def log_info(msg, *args):
+    print(f"{ANSI_GREEN}{ANSI_BOLD}[INFO] {msg} {args}{ANSI_RESET}")
+
+def log_debug(msg, *args):
+    print(f"{ANSI_BLUE}{ANSI_BOLD}[DEBUG] {msg} {args} {ANSI_RESET}")
+
 def register_tracker_routes(app):
     @app.route('/register-peer-pool', methods=['POST'])
     def register_peer_pool(headers, body):
@@ -53,7 +73,7 @@ def register_tracker_routes(app):
         :param headers (str): The request headers or user identifier.
         :param body (str): The request body or peer pool data.
         """
-        print("[Tracker] register-peer-pool called with headers: {} and body: {}".format(headers, body))
+        log_info(f"[Tracker] register-peer-pool called with headers: {headers} and body: {body}")
         body_split = body.split('&')
         peer = {}
         for item in body_split:
@@ -63,10 +83,10 @@ def register_tracker_routes(app):
 
         # If the peer with the same IP and port already exists, return error
         if (peer['ip'], peer['port']) in PEER_DICT:
-            print("[Tracker] Peer already registered: {}".format(peer))
+            log_warning(f"[Tracker] Peer already registered: {peer}")
             return False
         PEER_DICT[(peer['ip'], peer['port'])] = peer
-        print("[Tracker] Current peer dict: {}".format(PEER_DICT))
+        log_info(f"[Tracker] Current peer dict: {PEER_DICT}")
         return True
     """
     Register routes specific to the tracker role.
@@ -84,19 +104,19 @@ def register_tracker_routes(app):
         :param username (str): The username of the user.
         :param status (str): The status of the user (e.g., 'online', 'offline').
         """
-        print("[Tracker] submit-info called with headers: {} and body: {}".format(headers, body))
+        log_info(f"[Tracker] submit-info called with headers: {headers} and body: {body}")
         body_split = body.split('&')
         info = {}
         for item in body_split:
             key, value = item.split('=')
             info[key] = value
         active_peers.append(info)
-        print("[Tracker] Current active peers: {}".format(active_peers))
+        log_info(f"[Tracker] Current active peers: {active_peers}")
         return True 
 
     @app.route('/get-list', methods=['GET'])
     def get_list(headers, body):
-        print("[Tracker] Get list called with headers: {} and body: {}".format(headers, body))
+        log_info(f"[Tracker] Get list called with headers: {headers} and body: {body}")
         return_data = json.dumps(active_peers)
         return return_data
 
@@ -115,10 +135,10 @@ def register_tracker_routes(app):
         username = body_split[0].split('=')[1]
         password = body_split[1].split('=')[1]
 
-        print("[SampleApp] Login handle for user: {} with password: {}".format(username, password))
-        print("Login status: ", login_user(username, password))
+        log_info(f"[SampleApp] Login handle for user: {username} with password: {password}")
+        log_info("Login status: ", login_user(username, password))
         if login_user(username, password):
-            print(PEER_DICT.items())
+            log_debug(PEER_DICT.items())
             for key, peer in PEER_DICT.items():
                 if peer['isUsed'] == 0:
                     peer['isUsed'] = 1
@@ -182,11 +202,14 @@ def register_peer_routes(app):
             global ip, port # Get the current peer's IP and port (cannot get from headers as it is from the requester)
             body = [peer for peer in body if not (peer['ip'] == ip and int(peer['port']) == port)]
 
+            # Remove peers that are already connected
+            body = [peer for peer in body if (peer['ip'], int(peer['port'])) not in peer_connections]
+
             body = json.dumps(body)
-            print("[Peer] Received peer list: ", body)
+            log_debug(f"[Peer] Received peer list: {body}")
             return body
         except socket.error:
-            print("[Peer] No response from tracker")
+            log_warning("[Peer] No response from tracker")
             return "[]"
         finally:
             s.close()
@@ -202,12 +225,12 @@ def register_peer_routes(app):
         :param headers (str): The request headers or user identifier.
         :param body (str): The request body or message payload.
         """
-        print("[SampleApp] ['PUT'] Hello in {} to {}".format(headers, body))
+        log_info(f"[SampleApp] ['PUT'] Hello in {headers} to {body}")
 
     @app.route('/connect-peer', methods=['POST'])
     def connect_peer(headers, body):
         # Parse target IP and port from body (e.g., "ip=127.0.0.1&port=9002")
-        print(f"[Peer] connect-peer called with headers: {headers} and body: {body}")
+        log_info(f"[Peer] connect-peer called with headers: {headers} and body: {body}")
         params = dict(x.split('=') for x in body.split('&'))
         target_ip = params.get('ip')
         target_port = int(params.get('port'))
@@ -219,7 +242,7 @@ def register_peer_routes(app):
         except Exception as e:
             return {"status": "error", "message": str(e)}
         finally:
-            print(f"[Peer] connect-peer {headers=} {body=}")
+            log_debug(f"[Peer] connect-peer {headers=} {body=}")
 
     @app.route('/get-connected-peers', methods=['GET'])
     def get_connected_peers(headers, body):
@@ -229,69 +252,129 @@ def register_peer_routes(app):
 
     @app.route('/send-peer', methods=['POST'])
     def send_peer(headers, body):
-        # Expect body: "ip=127.0.0.1&port=9002&message=Hello"
         params = dict(x.split('=') for x in body.split('&'))
         target_ip = params.get('ip')
         target_port = int(params.get('port'))
         message = params.get('message', '')
         conn_key = (target_ip, target_port)
         header = f"POST /receive-message HTTP/1.1\r\nHost: {target_ip}:{target_port}\r\nContent-Length: {len(message)}\r\n\r\n"
+        global ip, port
         body = {
             "message": message,
-            "sender_ip": headers.get('x-connection-ip'),
-            "sender_port": headers.get('x-connection-port')
+            "sender_ip": ip,
+            "sender_port": port
         }
-        message = header + json.dumps(body)
+        msg_data = header + json.dumps(body)
         try:
             s = peer_connections.get(conn_key)
-            if not s:
-                return {"status": "error", "message": "No connection to target peer"}
-            # Send message as simple text (could use a protocol)
-            s.sendall(message.encode())
+            s.close()
+            s = socket.socket()
+            s.connect((target_ip, target_port))
+            peer_connections[conn_key] = s
+            s.sendall(msg_data.encode())
             return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
-        finally:
-            print(f"[Peer] send-peer {headers=} {body=}")
+            return {"status": "error", "message": f"Cannot connect/send: {e}"}
+        # if not s:
+        #     # No connection, create one
+        #     try:
+        #         s = socket.socket()
+        #         s.connect((target_ip, target_port))
+        #         peer_connections[conn_key] = s
+        #     except Exception as e:
+        #         return {"status": "error", "message": f"Cannot connect: {e}"}
+        # try:
+        #     s.sendall(msg_data.encode())
+        #     return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
+        # except (BrokenPipeError, OSError):
+        #     # Socket closed, re-open and retry
+        #     try:
+        #         s.close()
+        #     except Exception:
+        #         pass
+        #     try:
+        #         new_s = socket.socket()
+        #         new_s.connect((target_ip, target_port))
+        #         peer_connections[conn_key] = new_s
+        #         new_s.sendall(msg_data.encode())
+        #         return {"status": "success", "message": f"Reconnected and sent to {target_ip}:{target_port}"}
+        #     except Exception as e:
+        #         return {"status": "error", "message": f"Reconnect failed: {e}"}
+        # except Exception as e:
+        #     return {"status": "error", "message": str(e)}
+        # finally:
+        #     print(f"[Peer] send-peer {headers=} {body=}")
 
     @app.route('/receive-message', methods=['POST'])
     def receive_message(headers, body):
         # Process and notify user of the incoming message
-        print(f"[Peer] Received message: {body}")
+        log_info(f"[Peer] Received message: {body}")
         body = json.loads(body)
         sender_ip = body.get("sender_ip")
         sender_port = body.get("sender_port")
-        print(f"[Peer] Message from {sender_ip}:{sender_port} - {body.get('message')}")
+        log_info(f"[Peer] Message from {sender_ip}:{sender_port} - {body.get('message')}")
         # Optionally, store or push to UI
+        # if (sender_ip, sender_port) not in received_messages:
+        #     received_messages[(sender_ip, sender_port)] = []
+        # received_messages[(sender_ip, sender_port)].append(body)
         received_messages[(sender_ip, sender_port)] = body
         return {"status": "success", "message": "Message received"}
     
     @app.route('/get-received-messages', methods=['GET'])
     def get_received_messages(headers, body):
         # Return all received messages
-        return json.dumps(received_messages)
+        # return json.dumps(received_messages)
+            # Convert dict with tuple keys to a list of dicts for JSON serialization
+        # formatted = []
+        # for (sender_ip, sender_port), msgs in received_messages.items():
+        #     for msg in msgs:
+        #         entry = dict(msg)  # Copy the message dict
+        #         entry['sender_ip'] = sender_ip
+        #         entry['sender_port'] = sender_port
+        #         formatted.append(entry)
+        log_info(f"\033[1;32;43mAll received messages: {received_messages}\033[0m")
+        formatted = []
+        keys_to_remove = []
+        for (sender_ip, sender_port), msg in received_messages.items():
+            entry = dict(msg)
+            entry['sender_ip'] = sender_ip
+            entry['sender_port'] = sender_port
+            formatted.append(entry)
+            keys_to_remove.append((sender_ip, sender_port))
+        # Remove after iteration
+        for k in keys_to_remove:
+            received_messages.pop(k)
+        return json.dumps(formatted)
     
     @app.route('/broadcast-peer', methods=['POST'])
     def broadcast_peer(headers, body):
+        body = json.loads(body)
         message = body.get("message", "")
+        log_info(f"[Peer] Broadcasting message: {message}")
+        if not message:
+            return {"status": "error", "message": "No message to broadcast"}
+        global ip, port
+        body = {
+            "message": message,
+            "sender_ip": ip,
+            "sender_port": port
+        }
+        errors = []
         for (peer_ip, peer_port), conn in peer_connections.items():
-            if conn:
-                try:
-                    header = f"POST /receive-message HTTP/1.1\r\nHost: {peer_ip}:{peer_port}\r\nContent-Length: {len(message)}\r\n\r\n"
-                    body = {
-                        "message": message,
-                        "sender_ip": headers.get('x-connection-ip'),
-                        "sender_port": headers.get('x-connection-port')
-                    }
-                    conn.sendall((header + json.dumps(body)).encode())
-                except Exception as e:
-                    print(f"[Peer] Error sending broadcast to {peer_ip}:{peer_port} - {e}")
+            try:
+                conn.close()
+                s = socket.socket()
+                s.connect((peer_ip, peer_port))
+                peer_connections[(peer_ip, peer_port)] = s
+                conn = s
+                header = f"POST /receive-message HTTP/1.1\r\nHost: {peer_ip}:{peer_port}\r\nContent-Length: {len(message)}\r\n\r\n"
+                conn.sendall((header + json.dumps(body)).encode())
+            except Exception as e:
+                log_warning(f"[Peer] Error sending broadcast to {peer_ip}:{peer_port} - {e}")
+                errors.append(f"Error sending to {peer_ip}:{peer_port} - {e}")
+        if errors:
+            return {"status": "error", "message": "; ".join(errors)}
         return {"status": "success", "message": "Broadcast sent"}
-
-    @app.route('/broadcast-peer', methods=['POST'])
-    def broadcast_peer(headers, body):
-        # TODO: send to all connected peers
-        print(f"[Peer] broadcast-peer {headers=} {body=}")
     
 
 def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
@@ -302,8 +385,7 @@ def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
     details to the console. In a real implementation, it would send an HTTP request
     to the tracker server with the peer's information.
     """
-    print(tracker_ip, tracker_port, my_ip, my_port, username)
-    print(f"[Peer] Registering with tracker at {TRACKER_IP}")
+    log_info(f"Registering with tracker at {TRACKER_IP}")
     s = socket.socket()
     s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1])))
     body = f"ip={my_ip}&port={my_port}&username={username}"
@@ -311,9 +393,9 @@ def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
     req = f"POST /register-peer-pool HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
     s.sendall(req.encode())
     try:
-        print(s.recv(1024).decode())
+        log_info(s.recv(1024).decode())
     except socket.error:
-        print("[Peer] No response from tracker")
+        log_warning("[Peer] No response from tracker")
     s.close()
 
 if __name__ == "__main__":
