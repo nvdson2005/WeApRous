@@ -23,6 +23,7 @@ The current version supports MIME type detection, content loading and header for
 import datetime
 import os
 import mimetypes
+import json
 from .dictionary import CaseInsensitiveDict
 
 # ANSI color log helpers
@@ -422,8 +423,35 @@ class Response():
         log_info("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
 
         base_dir = ""
-
-        if path == "/submit-username":
+        if path == "/get-channel-messages":
+            if request.method == "GET":
+                if hook_result is not None:
+                    return self.build_json_response(json.dumps(hook_result))
+                else:
+                    return self.build_internal_server_error()
+        if path == "/send-channel-message":
+            if request.method == "POST":
+                if hook_result is not None:
+                    return self.build_json_response(json.dumps(hook_result))
+                else:
+                    return self.build_internal_server_error()
+        if path == "/get-joined-channels":
+            if request.method == "GET":
+                if hook_result is not None:
+                    return self.build_json_response('{ "status": "success", "channels": %s }' % json.dumps(hook_result))
+                else:
+                    return self.build_internal_server_error()
+        if path == "/get-all-channels":
+            if request.method == "GET":
+                if hook_result is not None:
+                    return self.build_json_response('{"status": "success", "channels": %s}' % hook_result) 
+                else:
+                    return self.build_internal_server_error()
+        if path == "/join-channel":
+            print("[Response] join-channel hook_result: {}".format(hook_result))
+            if hook_result is not None:
+                return self.build_json_response(json.dumps(hook_result))
+        if path == "/submit-username": 
             if hook_result is not None:
                 if hook_result == True:
                     return self.build_json_response('{"status": "success"}')

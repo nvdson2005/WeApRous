@@ -45,6 +45,21 @@ peer_connections = {}
 # Used for tracker, to track active peers
 active_peers = []
 
+# Used for tracker, to track channel messages
+# Some channels are initially created
+# Each key format: "channel_name": {"members": [List of peers], "messages": [List of messages in the channel]}
+channel_messages = {
+    "general": {"members": [], "messages": []},
+    "random": {"members": [], "messages": []},
+    "project": {"members": [], "messages": []},
+    "help": {"members": [], "messages": []},
+    "announcements": {"members": [], "messages": []},
+}
+
+# Used for peer, to track joined channels
+# Format: ["channel1", "channel2", ...]
+joined_channels = []
+
 # Used for peer, to track received messages
 received_messages = {} 
 
@@ -72,6 +87,89 @@ def log_debug(msg, *args):
     print(f"{ANSI_BLUE}{ANSI_BOLD}[DEBUG] {msg} {args} {ANSI_RESET}")
 
 def register_tracker_routes(app):
+
+    @app.route('/get-all-channels', methods=['GET'])
+    def tracker_get_all_channels(headers, body):
+        log_info(f"[Tracker] Get all channels called with headers: {headers} and body: {body}")
+        return_data = json.dumps(list(channel_messages.keys()))
+        return return_data
+    
+    @app.route('/join-channel', methods=['POST'])
+    def tracker_join_channel(headers, body):
+        '''
+        Handle joining a channel via POST request.
+        This route simulates a user joining a channel by printing the provided
+        headers and body to the console.
+        :param headers (str): The request headers or user identifier.
+        :param body (str): The request body or channel information.
+        format: "channel_name=general&peer_ip=127.0.0.1&peer_port=5000&username=alice"
+        '''
+        log_info(f"[Tracker] join-channel called with headers: {headers} and body: {body}")
+        body = body.split('&')
+        data = {}
+        for item in body:
+            key, value = item.split('=')
+            data[key] = value
+
+        channel_name = data.get('channel_name')
+        ip = data.get('peer_ip')
+        port = data.get('peer_port')
+        username = data.get('username')
+
+        if channel_name not in channel_messages:
+            log_warning(f"[Tracker] Channel not found: {channel_name}")
+            return {"status": "error", "message": "Channel not found"} 
+
+        peer = {'ip': ip, 'port': port, 'username': username}
+        if 'members' not in channel_messages[channel_name]:
+            channel_messages[channel_name]['members'] = []
+        if peer not in channel_messages[channel_name]['members']:
+            channel_messages[channel_name]['members'].append(peer)
+        log_info(f"[Tracker] Current channel members for {channel_name}: {channel_messages[channel_name]['members']}")
+        return {"status": "success", "message": f"Joined channel {channel_name}"} 
+
+    @app.route('/get-channel-messages', methods=['GET'])
+    def tracker_get_channel_messages(headers, body):
+        log_info(f"[Tracker] get-channel-messages called with headers: {headers} and body: {body}")
+        body = body.split('&')
+        data = {}
+        for item in body:
+            key, value = item.split('=')
+            data[key] = value
+
+        channel_name = data.get('channel_name')
+        if channel_name not in channel_messages:
+            log_warning(f"[Tracker] Channel not found: {channel_name}")
+            return {"status": "error", "message": "Channel not found"} 
+        return {"status": "success", "messages": channel_messages[channel_name]}
+    
+    @app.route('/send-channel-message', methods=['POST'])
+    def tracker_send_channel_message(headers, body):
+        log_info(f"[Tracker] send-channel-message called with headers: {headers} and body: {body}")
+        body = body.split('&')
+        data = {}
+        for item in body:
+            key, value = item.split('=')
+            data[key] = value
+
+        channel_name = data.get('channel_name')
+        message = data.get('message')
+        ip = data.get('peer_ip')
+        port = data.get('peer_port')
+        username = data.get('username')
+
+        if channel_name not in channel_messages:
+            log_warning(f"[Tracker] Channel not found: {channel_name}")
+            return {"status": "error", "message": "Channel not found"}
+        channel_messages[channel_name]['messages'].append({
+            'sender_ip': ip,
+            'sender_port': port,
+            'username': username,
+            'text': message
+        })
+        log_info(f"[Tracker] Message sent to {channel_name}: {message}")
+        return {"status": "success", "message": f"Message sent to {channel_name}"}
+
     @app.route('/register-peer-pool', methods=['POST'])
     def register_peer_pool(headers, body):
         """
@@ -181,6 +279,107 @@ def register_tracker_routes(app):
         # print("[SampleApp] Logging in {} to {}".format(headers, body))
 
 def register_peer_routes(app):
+    @app.route('/get-all-channels', methods=['GET'])
+    def peer_get_all_channels(headers, body):
+        log_info(f"[Peer] Get all channels called with headers: {headers} and body: {body}")
+        s = socket.socket()
+        s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1])))
+        req = f"GET /get-all-channels HTTP/1.1\r\nHost: {TRACKER_IP}\r\n\r\n"
+        s.sendall(req.encode())
+        try:
+            response = s.recv(4096).decode()
+            body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
+            body = json.loads(body) if body else []
+            if 'channels' not in body:
+                return None
+            body = body['channels']
+            log_debug(f"[Peer] Received channel list: {body}")
+            return json.dumps(body)
+        except socket.error:
+            log_warning("[Peer] No response from tracker")
+            return None
+        finally:
+            s.close()
+
+    @app.route('/get-joined-channels', methods=['GET'])
+    def peer_get_joined_channels(headers, body):
+        log_info(f"[Peer] Get joined channels called with headers: {headers} and body: {body}")
+        log_debug(f"[Peer] Joined channels: {joined_channels}")
+        return joined_channels
+
+    @app.route('/join-channel', methods=['POST'])
+    def peer_join_channel(headers, body):
+        log_info(f"[Peer] join-channel called with headers: {headers} and body: {body}")
+        s = socket.socket()
+        s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1]))) 
+        channel_name = body.split('=')[1]
+        global ip, port, username
+        body = f"channel_name={channel_name}&peer_ip={ip}&peer_port={port}&username={username}"
+        req = f"POST /join-channel HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        s.sendall(req.encode())
+        try:
+            response = s.recv(4096).decode()
+            body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
+            body = json.loads(body) if body else {}
+            log_debug(f"[Peer] Join channel response: {body}")
+            if body.get('status') == 'success':
+                joined_channels.append(channel_name)
+            return body 
+        except socket.error:
+            log_warning("[Peer] No response from tracker")
+            return {"status": "error", "message": "No response from tracker"}
+        finally:
+            s.close()
+
+    @app.route('/get-channel-messages', methods=['GET'])
+    def peer_get_channel_messages(headers, body):
+        log_info(f"[Peer] get-channel-messages called with headers: {headers} and body: {body}")
+        s = socket.socket()
+        s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1]))) 
+        channel_name = body.split('=')[1]
+        body = f"channel_name={channel_name}"
+        req = f"GET /get-channel-messages HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        s.sendall(req.encode())
+        try:
+            response = s.recv(4096).decode()
+            body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
+            log_debug(f"[Peer] Get channel messages response: {body}")
+            return body 
+        except socket.error:
+            log_warning("[Peer] No response from tracker")
+            return {"status": "error", "message": "No response from tracker"}
+        finally:
+            s.close()
+    
+    @app.route('/send-channel-message', methods=['POST'])
+    def peer_send_channel_message(headers, body):
+        log_info(f"[Peer] send-channel-message called with headers: {headers} and body: {body}")
+        s = socket.socket()
+        s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1]))) 
+        body = body.split('&')
+        data = {}
+        global ip, port, username
+        for item in body:
+            key, value = item.split('=')
+            data[key] = value
+        body = f"channel_name={data.get('channel_name')}&message={data.get('message')}&peer_ip={ip}&peer_port={port}&username={username}"
+        req = f"POST /send-channel-message HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        s.sendall(req.encode())
+        try:
+            response = s.recv(4096).decode()
+            body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
+            body = json.loads(body) if body else {}
+            # if body.get('status') == 'success':
+            #     if data.get('channel_name') in channel_messages:
+            #         channel_messages[data.get('channel_name')].append(data.get('message'))
+            log_debug(f"[Peer] Send channel message response: {body}")
+            return body 
+        except socket.error:
+            log_warning("[Peer] No response from tracker")
+            return {"status": "error", "message": "No response from tracker"}
+        finally:
+            s.close()
+
     @app.route('/submit-username', methods=['POST'])
     def submit_username(headers, body):
         """
@@ -192,17 +391,18 @@ def register_peer_routes(app):
         :param headers (str): The request headers or user identifier.
         :param body (str): The request body or username payload, formatted as "username=...".
         """
-        global ip, port
+        global ip, port, username
         log_info(f"[Peer] submit-username called with headers: {headers} and body: {body}")
-        username = body.split('=')[1]
-        body = f"ip={ip}&port={port}&username={username}"
-        log_info(f"[Peer] Username submitted: {username}")
+        _username = body.split('=')[1]
+        body = f"ip={ip}&port={port}&username={_username}"
+        log_info(f"[Peer] Username submitted: {_username}")
         req = f"POST /submit-info HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
         try:
             s = socket.socket()
             s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1])))
             s.sendall(req.encode())
             s.close()
+            username = _username
             return True
         except Exception as e:
             log_warning(f"[Peer] Error submitting username: {e}")
@@ -435,9 +635,10 @@ if __name__ == "__main__":
     parser.add_argument('--role', choices=['tracker', 'peer'], default='peer')
 
     args = parser.parse_args()
-    global ip, port
+    global ip, port, username
     ip = args.server_ip
     port = args.server_port
+    username = "n/a"
 
     if args.role == 'tracker':
         register_tracker_routes(app)
