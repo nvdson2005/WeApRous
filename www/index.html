@@ -131,18 +131,10 @@
     <div class="status" id="broadcastMsgStatus"></div>
 
     <h2>Register this peer</h2>
-    <p>
-      Provide a username and the port your client will accept WebSocket
-      connections on.
-    </p>
+    <p>Provide a username for your peer.</p>
     <div class="row">
       <input id="username" placeholder="username" />
-      <input
-        id="localPort"
-        placeholder="port (e.g. 9001)"
-        style="width: 140px"
-      />
-      <button id="registerBtn">Register (POST /submit-info)</button>
+      <button id="registerBtn">Register</button>
     </div>
     <div class="status" id="registerStatus"></div>
 
@@ -220,33 +212,32 @@
         .getElementById("registerBtn")
         .addEventListener("click", async () => {
           const username = document.getElementById("username").value.trim();
-          const port = document.getElementById("localPort").value.trim();
           const statusEl = document.getElementById("registerStatus");
-          if (!username || !port) {
+          if (!username) {
             statusEl.textContent = "username and port are required";
             return;
           }
 
-          // use current page hostname as IP
-          const ip = location.hostname;
-          const body = `ip=${encodeURIComponent(ip)}&port=${encodeURIComponent(
-            port
-          )}&username=${encodeURIComponent(username)}`;
+          // Fetch information to peer
+          const body = new URLSearchParams({
+            username: username,
+          }).toString();
 
           try {
-            const res = await fetch("/submit-info", {
+            const res = await fetch("/submit-username", {
               method: "POST",
-              headers: { "Content-Type": "application/x-www-form-urlencoded" },
               body,
             });
+            const text = await res.text();
+
             statusEl.textContent =
-              "Submitted registration (server may not return content).";
-            appendLog(`Submitted submit-info for ${username}@${ip}:${port}`);
+              "Registration submitted. Server response: " + text;
+            appendLog(`Submitted submit-info for ${username}`);
             // refresh list after a short delay
             setTimeout(fetchPeers, 300);
           } catch (e) {
             statusEl.textContent = "Error submitting registration";
-            appendLog("Error POST /submit-info: " + e);
+            appendLog("Error POST /submit-username: " + e);
           }
         });
 
@@ -448,7 +439,7 @@
           }
           const body = {
             message: message,
-          }
+          };
           try {
             const res = await fetch("/broadcast-peer", {
               method: "POST",
