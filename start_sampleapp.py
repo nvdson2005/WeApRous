@@ -32,13 +32,23 @@ from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
 
+# Global data structures
+# Peer connection management, has the format of {(ip, port): {ip: str, port: int, isUsed: bool, username: str}}
 PEER_DICT = {} 
+
+# Initialize the WeApRous application
 app = WeApRous()
 
+# Used for peer, to track connections and messages
 peer_connections = {}
+
+# Used for tracker, to track active peers
 active_peers = []
+
+# Used for peer, to track received messages
 received_messages = {} 
 
+# Tracker server IP and port
 TRACKER_IP = "127.0.0.1:8080"
 
 # ANSI color log helpers
@@ -96,13 +106,12 @@ def register_tracker_routes(app):
         """
         Handle submission of user information via POST request.
 
-        This route simulates tracking user information such as IP, port, username,
-        and status. It prints the provided information to the console.
+        This route simulates tracking user information such as IP, port, username,. 
+        It prints the provided information to the console.
 
         :param ip (str): The IP address of the user.
         :param port (str): The port number of the user.
         :param username (str): The username of the user.
-        :param status (str): The status of the user (e.g., 'online', 'offline').
         """
         log_info(f"[Tracker] submit-info called with headers: {headers} and body: {body}")
         body_split = body.split('&')
@@ -110,9 +119,13 @@ def register_tracker_routes(app):
         for item in body_split:
             key, value = item.split('=')
             info[key] = value
-        active_peers.append(info)
-        log_info(f"[Tracker] Current active peers: {active_peers}")
-        return True 
+        log_info(f"[Tracker] Received info: {info}")
+        try:
+            PEER_DICT[(info['ip'], info['port'])]['username'] = info['username']
+            return True 
+        except KeyError:
+            log_warning(f"[Tracker] Peer not found for info submission: {info}")
+            return False
 
     @app.route('/get-list', methods=['GET'])
     def get_list(headers, body):
@@ -150,19 +163,9 @@ def register_tracker_routes(app):
                     active_peers.append(peer)
 
                     # if connection_ip is not None and connection_port is not None:
-                    #     submit_info(connection_ip, connection_port, username)
-                    # else:
-                    #     print("[SampleApp] Missing connection IP/Port in headers")
-                    #     return {
-                    #     'content_path': '/login.html',
-                    #     # 'redirect': '/login.html',
-                    #     'redirect': peer_url,
-                    #     'set_cookie': 'auth=false'
-                    #     }
                     return {
                         'chosen_peer': peer,
                         'content_path': '/index.html',
-                        # 'redirect': '/index.html',
                         'redirect': peer_url,
                         'set_cookie': 'auth=true'
                     }
@@ -178,6 +181,33 @@ def register_tracker_routes(app):
         # print("[SampleApp] Logging in {} to {}".format(headers, body))
 
 def register_peer_routes(app):
+    @app.route('/submit-username', methods=['POST'])
+    def submit_username(headers, body):
+        """
+        Handle submission of username via POST request.
+
+        This route simulates submitting a username by printing the provided headers
+        and body to the console.
+
+        :param headers (str): The request headers or user identifier.
+        :param body (str): The request body or username payload, formatted as "username=...".
+        """
+        global ip, port
+        log_info(f"[Peer] submit-username called with headers: {headers} and body: {body}")
+        username = body.split('=')[1]
+        body = f"ip={ip}&port={port}&username={username}"
+        log_info(f"[Peer] Username submitted: {username}")
+        req = f"POST /submit-info HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        try:
+            s = socket.socket()
+            s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1])))
+            s.sendall(req.encode())
+            s.close()
+            return True
+        except Exception as e:
+            log_warning(f"[Peer] Error submitting username: {e}")
+            return False
+
     @app.route('/get-list', methods=['GET'])
     def get_list(headers, body):
         """
@@ -375,7 +405,6 @@ def register_peer_routes(app):
         if errors:
             return {"status": "error", "message": "; ".join(errors)}
         return {"status": "success", "message": "Broadcast sent"}
-    
 
 def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
     """
@@ -417,7 +446,7 @@ if __name__ == "__main__":
         app.run()
     else:
         register_peer_routes(app)
-        register_with_tracker(TRACKER_IP.split(':')[0], TRACKER_IP.split(':')[1], ip, port, "peer1")
+        register_with_tracker(TRACKER_IP.split(':')[0], TRACKER_IP.split(':')[1], ip, port, "n/a")
         # Prepare and launch the RESTful application
         app.prepare_address(ip, port)
         app.run()

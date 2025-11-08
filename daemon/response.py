@@ -423,6 +423,14 @@ class Response():
 
         base_dir = ""
 
+        if path == "/submit-username":
+            if hook_result is not None:
+                if hook_result == True:
+                    return self.build_json_response('{"status": "success"}')
+                elif hook_result == False:
+                    return self.build_json_response('{"status": "failure"}')
+            else:
+                return self.build_internal_server_error()
         if path == "/broadcast-peer" and request.method == "POST":
             if hook_result is not None:
                 if 'status' in hook_result:
