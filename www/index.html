@@ -64,7 +64,7 @@
             .top-row {
                 display: flex;
                 gap: 20px;
-                height: 300px; /* Chiều cao cố định cho 2 bảng trên */
+                height: 288px; /* Chiều cao cố định cho 2 bảng trên */
             }
 
             /* --- Cấu trúc Panel chung --- */
@@ -406,6 +406,21 @@
                     </section>
                 </div>
 
+                <section class="panel">
+                    <h2 class="panel-header">Register this Peer</h2>
+                    <div class="panel-content" style="padding-left: 15px">
+                        <p>
+                            Provide a username for your peer (Required first
+                            step).
+                        </p>
+                        <div class="row">
+                            <input id="username" placeholder="username" />
+                            <button id="registerBtn">Register</button>
+                        </div>
+                        <div class="status" id="registerStatus"></div>
+                    </div>
+                </section>
+
                 <section class="panel chat-window">
                     <h2 class="panel-header" id="chat-header">
                         Select a Peer or Channel
@@ -416,7 +431,7 @@
                     >
                         <div class="message-wrapper">
                             <div class="message sender">
-                                Welcome! Please register your username below.
+                                Welcome! Please register your username.
                             </div>
                         </div>
                         <div class="message-wrapper">
@@ -432,21 +447,6 @@
                             placeholder="Type message ..."
                         />
                         <button id="chat-send-btn">Send</button>
-                    </div>
-                </section>
-
-                <section class="panel">
-                    <h2 class="panel-header">Register This Peer</h2>
-                    <div class="panel-content" style="padding: 15px">
-                        <p>
-                            Provide a username for your peer (Required first
-                            step).
-                        </p>
-                        <div class="row">
-                            <input id="username" placeholder="username" />
-                            <button id="registerBtn">Register</button>
-                        </div>
-                        <div class="status" id="registerStatus"></div>
                     </div>
                 </section>
             </main>
@@ -469,6 +469,7 @@
                 let allChannelsList = [];
                 let joinedChannelsList = [];
                 let channelMessages = {}; // {channel: [msg, ...]}
+                let peerMessages = {}; // { "ip:port": [msg, ...] }
                 let unreadChannels = new Set();
 
                 // Ánh xạ (Map) các phần tử DOM
@@ -520,7 +521,7 @@
                         dom.notificationsList.scrollHeight;
                 }
 
-                // *** HÀM MỚI: Thêm tin nhắn vào ô chat chính ***
+                // Thêm tin nhắn vào ô chat chính
                 function appendMessageToChatWindow(
                     senderName,
                     text,
@@ -536,13 +537,9 @@
                         : "message sender";
 
                     div.innerHTML = `<div class="${messageClass}">
-                                        <strong>${escapeHtml(
-                                            senderName
-                                        )}</strong>
                                         <p>${escapeHtml(text)}</p>
                                     </div>`;
                     dom.chatMessages.appendChild(div);
-                    // Tự động cuộn xuống tin nhắn mới nhất
                     dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
                 }
 
@@ -571,11 +568,7 @@
                     return txt.value;
                 }
 
-                // ============================================================
-                // CÁC HÀM RENDER (VIẾT LẠI/CHỈNH SỬA)
-                // ============================================================
-
-                // 1. Render bảng User List (tất cả peer) (VIẾT LẠI)
+                // 1. Render bảng User List (tất cả peer)
                 function renderPeers(peers) {
                     activePeersList = peers; // Lưu lại
                     dom.userListTbody.innerHTML = "";
@@ -584,6 +577,7 @@
                             '<tr><td colspan="4" style="text-align:center;color:#666">No peers found. Try refreshing.</td></tr>';
                         return;
                     }
+
                     peers.forEach((p) => {
                         const tr = document.createElement("tr");
                         tr.innerHTML = `<td>${escapeHtml(
@@ -596,7 +590,7 @@
                                 )}" data-port="${escapeAttr(
                             p.port
                         )}" data-username="${escapeAttr(
-                            p.username || p.ip
+                            p.username || "n/a"
                         )}">Connect</button></td>`;
 
                         // Gắn sự kiện cho nút "Connect"
@@ -613,21 +607,21 @@
                     });
                 }
 
-                // 2. Render danh sách Connected Peers (thanh bên) (VIẾT LẠI)
+                // 2. Render danh sách Connected Peers (thanh bên)
                 function renderConnectedPeers(peers) {
                     connectedPeersList = peers; // Lưu lại
                     dom.connectedPeersList.innerHTML = ""; // Xóa sạch
 
-                    // Thêm lại nút Broadcast
-                    const broadcastLi = document.createElement("li");
-                    broadcastLi.innerHTML = `<button id="broadcast-btn" class="broadcast-btn">Broadcast</button>`;
-                    dom.connectedPeersList.appendChild(broadcastLi);
-                    broadcastLi.querySelector("button").onclick =
-                        onBroadcastClick; // Gắn lại sự kiện
-
                     if (!peers || peers.length === 0) {
-                        // Không cần thêm gì
                     } else {
+                        const broadcastLi = document.createElement("li");
+                        broadcastLi.innerHTML = `<button id="broadcast-btn" class="broadcast-btn">Broadcast</button>`;
+                        broadcastLi.onclick = selectBroadcastChat;
+                        if (currentChatMode === "broadcast") {
+                            broadcastLi.classList.add("active");
+                        }
+                        dom.connectedPeersList.appendChild(broadcastLi);
+
                         peers.forEach((p) => {
                             // Cố gắng tìm username từ activePeersList nếu connectedPeersList không có
                             const activePeer = activePeersList.find(
@@ -638,11 +632,25 @@
                                 (activePeer ? activePeer.username : null);
 
                             const li = document.createElement("li");
-                            li.innerHTML = `${escapeHtml(
-                                p.username || p.ip
-                            )} <span>${escapeHtml(p.ip)}:${escapeHtml(
-                                p.port
-                            )}</span>`;
+                            // li.innerHTML = `${escapeHtml(
+                            //     p.username || p.ip
+                            // )} <span>${escapeHtml(p.ip)}:${escapeHtml(
+                            //     p.port
+                            // )}</span>`;
+
+                            if (p.username) {
+                                // Nếu CÓ username, hiển thị: User1 <span>127.0.0.1:9001</span>
+                                li.innerHTML = `${escapeHtml(
+                                    p.username
+                                )} <span>${escapeHtml(p.ip)}:${escapeHtml(
+                                    p.port
+                                )}</span>`;
+                            } else {
+                                // Nếu KHÔNG có username, chỉ hiển thị: 192.168.1.26:9002
+                                li.innerHTML = `n/a ${escapeHtml(
+                                    p.ip
+                                )}:${escapeHtml(p.port)}`;
+                            }
 
                             // Gán sự kiện click để bắt đầu chat
                             li.onclick = () => selectPeerChat(p);
@@ -666,12 +674,24 @@
                     let channels = [];
                     try {
                         const res = await fetch("/get-all-channels");
-                        channels = await res.json();
-                        if (!Array.isArray(channels)) channels = [];
-                        allChannelsList = channels; // Lưu lại
+                        const text = await res.text();
+
+                        // Logic parse chính xác từ tmp.html
+                        const result = JSON.parse(text);
+                        if (
+                            result.status === "success" &&
+                            Array.isArray(result["channels"])
+                        ) {
+                            allChannelsList = result["channels"];
+                        } else {
+                            allChannelsList = [];
+                        }
                     } catch (e) {
-                        channels = [];
+                        allChannelsList = [];
+                        console.error("Lỗi parse /get-all-channels:", e);
                     }
+
+                    channels = allChannelsList; // Gán để phần còn lại của hàm chạy đúng
 
                     dom.channelListTbody.innerHTML = "";
                     if (!channels || channels.length === 0) {
@@ -695,7 +715,6 @@
                                             }
                                         </td>`;
 
-                        // Gắn sự kiện cho nút "Join"
                         const joinBtn = tr.querySelector(".btn-join");
                         if (joinBtn) {
                             joinBtn.onclick = (e) =>
@@ -726,7 +745,7 @@
                     });
                 }
 
-                // 5. Render tin nhắn trong ô chat (VIẾT LẠI)
+                // 5. Render tin nhắn trong ô chat
                 function renderChannelMessages() {
                     dom.chatMessages.innerHTML = "";
                     const msgs = channelMessages[selectedChannel] || [];
@@ -750,7 +769,7 @@
                 // CÁC HÀM XỬ LÝ TRẠNG THÁI CHAT (MỚI)
                 // ============================================================
 
-                // MỚI: Khi click vào 1 peer trong "Connected Peers"
+                // Khi click vào 1 peer trong "Connected Peers"
                 function selectPeerChat(peer) {
                     appendLog(
                         `Selected P2P chat with ${peer.username || peer.ip}`
@@ -762,9 +781,27 @@
                     dom.chatHeader.textContent = `User: ${
                         peer.username || peer.ip
                     }`;
-                    dom.chatMessages.innerHTML = `<div class="message-wrapper"><div class="message sender">Started P2P chat with ${
-                        peer.username || peer.ip
-                    }. Say hi!</div></div>`;
+
+                    dom.chatMessages.innerHTML = "";
+
+                    const key = `${peer.ip}:${peer.port}`;
+                    const history = peerMessages[key] || [];
+
+                    if (history.length === 0) {
+                        dom.chatMessages.innerHTML = `<div class="message-wrapper"><div class="message sender">Started P2P chat with ${
+                            peer.username || peer.ip
+                        }. Say hi!</div></div>`;
+                    } else {
+                        history.forEach((msgObj) => {
+                            appendMessageToChatWindow(
+                                msgObj.senderName,
+                                msgObj.text,
+                                msgObj.isReceiver
+                            );
+                        });
+                    }
+                    // === KẾT THÚC SỬA ===
+
                     dom.chatInput.placeholder = `Message to ${
                         peer.username || peer.ip
                     }...`;
@@ -774,7 +811,7 @@
                     renderJoinedChannelList();
                 }
 
-                // SỬA: Khi click vào 1 channel trong "Joined Channels"
+                // Khi click vào 1 channel trong "Joined Channels"
                 async function selectChannel(channel) {
                     appendLog(`Selected channel chat: ${channel}`);
                     currentChatMode = "channel";
@@ -792,12 +829,14 @@
 
                     // Fetch tin nhắn (Logic từ index.html)
                     try {
-                        const res = await fetch(
-                            `/get-channel-messages?channel_name=${encodeURIComponent(
-                                channel
-                            )}`
-                        );
-                        const result = await res.json();
+                        const res = await fetch("/get-channel-messages", {
+                            method: "GET", // <<< SỬA: Dùng GET với body
+                            body: new URLSearchParams({
+                                channel_name: channel,
+                            }).toString(),
+                        });
+                        const text = await res.text();
+                        const result = JSON.parse(text); // <<< SỬA: Parse text
 
                         if (
                             result.status === "success" &&
@@ -810,11 +849,29 @@
                         }
                     } catch (e) {
                         channelMessages[channel] = [];
+                        console.error("Lỗi parse /get-channel-messages:", e);
                     }
                     // Render tin nhắn ra cửa sổ chat
                     renderChannelMessages();
                 }
 
+                function selectBroadcastChat() {
+                    appendLog(`Selected Broadcast mode.`);
+
+                    // 1. Cập nhật trạng thái
+                    currentChatMode = "broadcast"; // <<< Đặt chế độ mới
+                    selectedPeer = null;
+                    selectedChannel = null;
+
+                    // 2. Cập nhật Giao diện
+                    dom.chatHeader.textContent = "Broadcast";
+                    dom.chatMessages.innerHTML = `<div class="message-wrapper"><div class="message sender">Tin nhắn được gửi từ đây sẽ đi đến <strong>tất cả</strong> các peer đã kết nối.</div></div>`;
+                    dom.chatInput.placeholder = `Type broadcast message...`;
+
+                    // 3. Render lại cột trái để cập nhật highlight 'active'
+                    renderConnectedPeers(connectedPeersList);
+                    renderJoinedChannelList();
+                }
                 // ============================================================
                 // CÁC HÀM API (CHỈNH SỬA VÀ GIỮ NGUYÊN TỪ index.html)
                 // ============================================================
@@ -890,8 +947,8 @@
                                 `Server response from /connect-peer: ${text}`
                             );
                             // Tải lại cả 2 list
-                            await fetchConnectedPeers();
-                            await fetchPeers();
+                            await fetchPeers(); // Tải master list (với username) TRƯỚC
+                            await fetchConnectedPeers(); // Tải list connected SAU
 
                             // Tự động chọn chat với peer vừa kết nối
                             const peer = { ip, port, username };
@@ -928,12 +985,28 @@
 
                         // *** CẬP NHẬT: Hiển thị tin nhắn của mình ngay lập tức ***
                         if (res.ok) {
+                            const key = `${selectedPeer.ip}:${selectedPeer.port}`;
+                            if (!peerMessages[key]) {
+                                peerMessages[key] = []; // Khởi tạo mảng nếu chưa có
+                            }
+
+                            // 2. Tạo đối tượng tin nhắn
+                            const msgObj = {
+                                senderName: myUsername,
+                                text: message,
+                                isReceiver: true,
+                            };
+
+                            // 3. Lưu tin nhắn của MÌNH vào cache
+                            peerMessages[key].push(msgObj);
+
+                            // 4. Hiển thị tin nhắn (như cũ)
                             appendMessageToChatWindow(
-                                myUsername,
-                                message,
-                                true
-                            ); // true = isReceiver (căn phải)
-                            dom.chatInput.value = ""; // Xóa input
+                                msgObj.senderName,
+                                msgObj.text,
+                                msgObj.isReceiver
+                            );
+                            dom.chatInput.value = "";
                         } else {
                             const text = await res.text();
                             appendLog(
@@ -945,8 +1018,8 @@
                     }
                 }
 
-                // 6. Gửi tin nhắn Broadcast (từ ô chat chính) (SỬA)
-                async function onBroadcastClick() {
+                // 6. Gửi tin nhắn Broadcast (từ ô chat chính)
+                async function onSendBroadcastClick() {
                     const message = dom.chatInput.value.trim();
                     if (!message) {
                         appendLog(
@@ -978,7 +1051,7 @@
                     }
                 }
 
-                // 7. Lấy tin nhắn P2P (polling) (SỬA)
+                // 7. Lấy tin nhắn P2P (polling)
                 async function fetchReceivedMessages() {
                     try {
                         const res = await fetch("/get-received-messages");
@@ -1000,7 +1073,21 @@
                                 : msg.username ||
                                   `${msg.sender_ip}:${msg.sender_port}`;
 
-                            // *** CẬP NHẬT: Kiểm tra xem có đang chat với người này không ***
+                            const key = `${msg.sender_ip}:${parseInt(
+                                msg.sender_port
+                            )}`;
+                            if (!peerMessages[key]) {
+                                peerMessages[key] = [];
+                            }
+
+                            const msgObj = {
+                                senderName: displayName,
+                                text: msg.message,
+                                isReceiver: false,
+                            };
+
+                            peerMessages[key].push(msgObj);
+
                             if (
                                 currentChatMode === "peer" &&
                                 selectedPeer &&
@@ -1018,7 +1105,6 @@
                                 appendLog(
                                     `Message from ${displayName} - ${msg.message}`
                                 );
-                                // TODO: Thêm chấm đỏ vào peer trong list
                             }
                         });
                     } catch (e) {
@@ -1037,15 +1123,24 @@
                 async function fetchJoinedChannels() {
                     try {
                         const res = await fetch("/get-joined-channels");
-                        const channels = await res.json();
-                        joinedChannelsList = Array.isArray(channels)
-                            ? channels
-                            : [];
-                        renderJoinedChannelList();
+                        const text = await res.text();
+
+                        // Logic parse chính xác từ tmp.html
+                        const result = JSON.parse(text);
+                        if (
+                            result.status === "success" &&
+                            Array.isArray(result["channels"])
+                        ) {
+                            joinedChannelsList = result["channels"];
+                        } else {
+                            joinedChannelsList = [];
+                        }
                     } catch (e) {
                         joinedChannelsList = [];
-                        renderJoinedChannelList();
+                        console.error("Lỗi parse /get-joined-channels:", e);
                     }
+
+                    renderJoinedChannelList();
                 }
 
                 // 10. Tham gia Kênh (SỬA)
@@ -1082,7 +1177,7 @@
                     }
                 }
 
-                // 11. Gửi tin nhắn Kênh (từ ô chat chính) (SỬA)
+                // 11. Gửi tin nhắn Kênh (từ ô chat chính)
                 async function onSendChannelMsgClick() {
                     const text = dom.chatInput.value.trim();
                     if (!selectedChannel || !text) {
@@ -1112,23 +1207,27 @@
                     }
                 }
 
-                // 12. Polling tin nhắn Kênh (SỬA)
+                // 12. Polling tin nhắn Kênh
                 async function pollChannelNotifications() {
                     let newMessages = false;
                     for (const ch of joinedChannelsList) {
                         try {
-                            const res = await fetch(
-                                `/get-channel-messages?channel_name=${encodeURIComponent(
-                                    ch
-                                )}`
-                            );
-                            const result = await res.json();
+                            // Logic ĐÃ SỬA, lấy từ tmp.html
+                            const res = await fetch("/get-channel-messages", {
+                                method: "GET",
+                                body: new URLSearchParams({
+                                    channel_name: ch,
+                                }).toString(),
+                            });
+                            const text = await res.text();
+                            const result = JSON.parse(text);
 
                             if (
                                 result.status === "success" &&
                                 result.messages &&
                                 Array.isArray(result.messages.messages)
                             ) {
+                                // ... (phần code logic so sánh newMsgCount/oldMsgCount giữ nguyên) ...
                                 const newMsgCount =
                                     result.messages.messages.length;
                                 const oldMsgCount = (channelMessages[ch] || [])
@@ -1150,6 +1249,7 @@
                             }
                         } catch (e) {
                             /* Bỏ qua lỗi */
+                            console.error("Lỗi polling channel:", e);
                         }
                     }
                     if (newMessages) {
@@ -1167,6 +1267,8 @@
                         onSendChannelMsgClick();
                     } else if (currentChatMode === "peer") {
                         onSendPeerMsgClick();
+                    } else if (currentChatMode === "broadcast") {
+                        onSendBroadcastClick();
                     } else {
                         appendLog("Please select a Peer or Channel to chat.");
                     }
@@ -1198,9 +1300,24 @@
                 setInterval(pollChannelNotifications, 3000);
 
                 // Polling danh sách (để giao diện luôn "tươi")
-                setInterval(fetchPeers, 10000); // 10 giây
-                setInterval(fetchConnectedPeers, 10000); // 10 giây
-                setInterval(fetchJoinedChannels, 10000); // 10 giây
+                // setInterval(fetchPeers, 10000); // 10 giây
+                // setInterval(fetchConnectedPeers, 10000); // 10 giây
+                // setInterval(fetchJoinedChannels, 10000); // 10 giây
+                async function pollMainLists() {
+                    // 1. LUÔN lấy danh sách master (có username) TRƯỚC
+                    await fetchPeers();
+
+                    // 2. SAU ĐÓ lấy các danh sách khác
+                    // Giờ đây 'renderConnectedPeers' (bên trong hàm này)
+                    // có thể tra cứu 'activePeersList' (đã được cập nhật) để lấy username
+                    await fetchConnectedPeers();
+
+                    // 3. Tải danh sách kênh
+                    await fetchJoinedChannels();
+                }
+
+                // Chạy hàm đồng bộ này mỗi 10 giây
+                setInterval(pollMainLists, 10000);
 
                 // ============================================================
                 // KHỞI CHẠY LẦN ĐẦU
