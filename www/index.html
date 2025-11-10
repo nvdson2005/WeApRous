@@ -811,7 +811,9 @@
                     // === KẾT THÚC SỬA ===
 
                     dom.chatInput.placeholder = `Message to ${
-                        peer.username || peer.ip
+                        peer.username ||
+                        activePeersNames[peer.ip + ":" + peer.port] ||
+                        peer.ip
                     }...`;
 
                     // Render lại list để highlight 'active'
