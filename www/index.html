@@ -674,15 +674,16 @@
                     let channels = [];
                     try {
                         const res = await fetch("/get-all-channels");
-                        const text = await res.text();
+                        const result = await res.json(); // 1. Lấy object
 
-                        // Logic parse chính xác từ tmp.html
-                        const result = JSON.parse(text);
+                        // 2. SỬA LỖI: Kiểm tra xem 'channels' có phải là một MẢNG (Array) không
                         if (
+                            result &&
                             result.status === "success" &&
-                            Array.isArray(result["channels"])
+                            Array.isArray(result.channels)
                         ) {
-                            allChannelsList = result["channels"];
+                            // 3. Gán trực tiếp mảng đó
+                            allChannelsList = result.channels;
                         } else {
                             allChannelsList = [];
                         }
@@ -724,7 +725,7 @@
                     });
                 }
 
-                // 4. Render danh sách Joined Channels (thanh bên) (VIẾT LẠI)
+                // 4. Render danh sách Joined Channels (thanh bên)
                 function renderJoinedChannelList() {
                     dom.joinedChannelsList.innerHTML = "";
                     joinedChannelsList.forEach((ch) => {
@@ -830,7 +831,7 @@
                     // Fetch tin nhắn (Logic từ index.html)
                     try {
                         const res = await fetch("/get-channel-messages", {
-                            method: "GET", // <<< SỬA: Dùng GET với body
+                            method: "POST",
                             body: new URLSearchParams({
                                 channel_name: channel,
                             }).toString(),
@@ -1123,15 +1124,16 @@
                 async function fetchJoinedChannels() {
                     try {
                         const res = await fetch("/get-joined-channels");
-                        const text = await res.text();
+                        const result = await res.json(); // 1. Lấy object
 
-                        // Logic parse chính xác từ tmp.html
-                        const result = JSON.parse(text);
+                        // 2. SỬA LỖI: Kiểm tra xem 'channels' có phải là một MẢNG (Array) không
                         if (
+                            result &&
                             result.status === "success" &&
-                            Array.isArray(result["channels"])
+                            Array.isArray(result.channels)
                         ) {
-                            joinedChannelsList = result["channels"];
+                            // 3. Gán trực tiếp mảng đó
+                            joinedChannelsList = result.channels;
                         } else {
                             joinedChannelsList = [];
                         }
@@ -1214,7 +1216,7 @@
                         try {
                             // Logic ĐÃ SỬA, lấy từ tmp.html
                             const res = await fetch("/get-channel-messages", {
-                                method: "GET",
+                                method: "POST",
                                 body: new URLSearchParams({
                                     channel_name: ch,
                                 }).toString(),
@@ -1244,6 +1246,39 @@
                                         // Nếu không, báo chưa đọc
                                         unreadChannels.add(ch);
                                         newMessages = true;
+
+                                        // --- TÍNH NĂNG MỚI: Thêm vào panel "Notifications" ---
+
+                                        // 1. Lấy ra chính xác những tin nhắn mới
+                                        const newMsgList =
+                                            result.messages.messages;
+                                        const oldMsgCount = (
+                                            channelMessages[ch] || []
+                                        ).length;
+                                        const numNew =
+                                            newMsgList.length - oldMsgCount;
+                                        // Chỉ lấy các tin nhắn thực sự mới
+                                        const actualNewMessages =
+                                            newMsgList.slice(-numNew);
+
+                                        // 2. Thêm thông báo cho từng tin nhắn mới
+                                        actualNewMessages.forEach((msg) => {
+                                            // Rút gọn tin nhắn để xem trước
+                                            const preview =
+                                                msg.text.length > 30
+                                                    ? msg.text.substring(
+                                                          0,
+                                                          30
+                                                      ) + "..."
+                                                    : msg.text;
+
+                                            // Gọi hàm appendLog (đã có sẵn) để đẩy vào panel "Notifications"
+                                            appendLog(
+                                                `Msg in #${ch} from ${
+                                                    msg.username || "n/a"
+                                                }: "${preview}"`
+                                            );
+                                        });
                                     }
                                 }
                             }

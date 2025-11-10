@@ -318,7 +318,7 @@ class Response():
 
         return (
                 "HTTP/1.1 401 Unauthorized\r\n"
-                "WWW-Authenticate: Basic realm=\"Access to the site\"\r\n"
+                # "WWW-Authenticate: Basic realm=\"Access to the site\"\r\n"
                 "Content-Type: text/html\r\n"
                 "Content-Length: 16\r\n"
                 "Cache-Control: max-age=86000\r\n"
@@ -424,7 +424,7 @@ class Response():
 
         base_dir = ""
         if path == "/get-channel-messages":
-            if request.method == "GET":
+            if request.method == "POST":
                 if hook_result is not None:
                     return self.build_json_response(json.dumps(hook_result))
                 else:
@@ -444,7 +444,7 @@ class Response():
         if path == "/get-all-channels":
             if request.method == "GET":
                 if hook_result is not None:
-                    return self.build_json_response('{"status": "success", "channels": %s}' % hook_result) 
+                    return self.build_json_response('{"status": "success", "channels": %s}' % json.dumps(hook_result)) 
                 else:
                     return self.build_internal_server_error()
         if path == "/join-channel":

@@ -64,7 +64,9 @@ joined_channels = []
 received_messages = {} 
 
 # Tracker server IP and port
-TRACKER_IP = "127.0.0.1:8080"
+# TRACKER_IP = "127.0.0.1:8080"
+TRACKER_IP = "192.168.1.26:8080"
+# TRACKER_IP = "10.229.186.44:8080"
 
 # ANSI color log helpers
 ANSI_RED = "\033[31m"
@@ -91,8 +93,9 @@ def register_tracker_routes(app):
     @app.route('/get-all-channels', methods=['GET'])
     def tracker_get_all_channels(headers, body):
         log_info(f"[Tracker] Get all channels called with headers: {headers} and body: {body}")
-        return_data = json.dumps(list(channel_messages.keys()))
-        return return_data
+        # return_data = json.dumps(list(channel_messages.keys()))
+        # return return_data
+        return list(channel_messages.keys())
     
     @app.route('/join-channel', methods=['POST'])
     def tracker_join_channel(headers, body):
@@ -128,7 +131,7 @@ def register_tracker_routes(app):
         log_info(f"[Tracker] Current channel members for {channel_name}: {channel_messages[channel_name]['members']}")
         return {"status": "success", "message": f"Joined channel {channel_name}"} 
 
-    @app.route('/get-channel-messages', methods=['GET'])
+    @app.route('/get-channel-messages', methods=['GET', 'POST'])
     def tracker_get_channel_messages(headers, body):
         log_info(f"[Tracker] get-channel-messages called with headers: {headers} and body: {body}")
         body = body.split('&')
@@ -289,12 +292,11 @@ def register_peer_routes(app):
         try:
             response = s.recv(4096).decode()
             body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
-            body = json.loads(body) if body else []
+            body = json.loads(body) if body else {}
             if 'channels' not in body:
                 return None
-            body = body['channels']
             log_debug(f"[Peer] Received channel list: {body}")
-            return json.dumps(body)
+            return body['channels']
         except socket.error:
             log_warning("[Peer] No response from tracker")
             return None
@@ -331,20 +333,21 @@ def register_peer_routes(app):
         finally:
             s.close()
 
-    @app.route('/get-channel-messages', methods=['GET'])
+    @app.route('/get-channel-messages', methods=['GET', 'POST'])
     def peer_get_channel_messages(headers, body):
         log_info(f"[Peer] get-channel-messages called with headers: {headers} and body: {body}")
         s = socket.socket()
         s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1]))) 
         channel_name = body.split('=')[1]
         body = f"channel_name={channel_name}"
-        req = f"GET /get-channel-messages HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        req = f"POST /get-channel-messages HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
         s.sendall(req.encode())
         try:
             response = s.recv(4096).decode()
             body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
             log_debug(f"[Peer] Get channel messages response: {body}")
-            return body 
+            # return body 
+            return json.loads(body) if body else {}
         except socket.error:
             log_warning("[Peer] No response from tracker")
             return {"status": "error", "message": "No response from tracker"}
@@ -505,35 +508,6 @@ def register_peer_routes(app):
             return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
         except Exception as e:
             return {"status": "error", "message": f"Cannot connect/send: {e}"}
-        # if not s:
-        #     # No connection, create one
-        #     try:
-        #         s = socket.socket()
-        #         s.connect((target_ip, target_port))
-        #         peer_connections[conn_key] = s
-        #     except Exception as e:
-        #         return {"status": "error", "message": f"Cannot connect: {e}"}
-        # try:
-        #     s.sendall(msg_data.encode())
-        #     return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
-        # except (BrokenPipeError, OSError):
-        #     # Socket closed, re-open and retry
-        #     try:
-        #         s.close()
-        #     except Exception:
-        #         pass
-        #     try:
-        #         new_s = socket.socket()
-        #         new_s.connect((target_ip, target_port))
-        #         peer_connections[conn_key] = new_s
-        #         new_s.sendall(msg_data.encode())
-        #         return {"status": "success", "message": f"Reconnected and sent to {target_ip}:{target_port}"}
-        #     except Exception as e:
-        #         return {"status": "error", "message": f"Reconnect failed: {e}"}
-        # except Exception as e:
-        #     return {"status": "error", "message": str(e)}
-        # finally:
-        #     print(f"[Peer] send-peer {headers=} {body=}")
 
     @app.route('/receive-message', methods=['POST'])
     def receive_message(headers, body):
