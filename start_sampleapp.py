@@ -64,8 +64,8 @@ joined_channels = []
 received_messages = {} 
 
 # Tracker server IP and port
-# TRACKER_IP = "127.0.0.1:8080"
-TRACKER_IP = "192.168.1.26:8080"
+TRACKER_IP = "127.0.0.1:8080"
+# TRACKER_IP = "192.168.1.26:8080"
 # TRACKER_IP = "10.229.186.44:8080"
 
 # ANSI color log helpers
@@ -491,11 +491,12 @@ def register_peer_routes(app):
         message = params.get('message', '')
         conn_key = (target_ip, target_port)
         header = f"POST /receive-message HTTP/1.1\r\nHost: {target_ip}:{target_port}\r\nContent-Length: {len(message)}\r\n\r\n"
-        global ip, port
+        global ip, port, username
         body = {
             "message": message,
             "sender_ip": ip,
-            "sender_port": port
+            "sender_port": port,
+            "username": username
         }
         msg_data = header + json.dumps(body)
         try:
