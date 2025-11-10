@@ -103,6 +103,16 @@ class HttpAdapter:
         # Response handler
         resp = self.response
 
+        # For all path excepts /login, check for authentication
+        if req.path == "/":
+            cookies = self.extract_cookies(req, resp)
+            auth_cookie = cookies.get("auth", None)
+            if auth_cookie != "true":
+                response = resp.build_unauthorized()
+                conn.sendall(response)
+                conn.close()
+                return
+
         # Handle the request
         msg = conn.recv(1024).decode()
         # print("MSG: ", msg)
@@ -137,11 +147,12 @@ class HttpAdapter:
         :rtype: cookies - A dictionary of cookie key-value pairs.
         """
         cookies = {}
-        for header in headers:
-            if header.startswith("Cookie:"):
-                cookie_str = header.split(":", 1)[1].strip()
-                for pair in cookie_str.split(";"):
-                    key, value = pair.strip().split("=")
+        cookie_header = req.headers.get("cookie", "")
+        if cookie_header:
+            cookie_pairs = cookie_header.split("; ")
+            for pair in cookie_pairs:
+                if "=" in pair:
+                    key, value = pair.split("=", 1)
                     cookies[key] = value
         return cookies
 
@@ -212,6 +223,14 @@ class HttpAdapter:
         
         :param request: :class:`Request <Request>` to add headers to.
         """
+        pass
+
+    def add_response_headers(self, response, set_cookie=None):
+        """
+        Add headers to the response.
+        """
+        if set_cookie:
+            response.headers["Set-Cookie"] = set_cookie
         pass
 
     def build_proxy_headers(self, proxy):

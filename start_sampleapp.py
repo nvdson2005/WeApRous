@@ -131,7 +131,7 @@ def register_tracker_routes(app):
         log_info(f"[Tracker] Current channel members for {channel_name}: {channel_messages[channel_name]['members']}")
         return {"status": "success", "message": f"Joined channel {channel_name}"} 
 
-    @app.route('/get-channel-messages', methods=['GET', 'POST'])
+    @app.route('/get-channel-messages', methods=['POST'])
     def tracker_get_channel_messages(headers, body):
         log_info(f"[Tracker] get-channel-messages called with headers: {headers} and body: {body}")
         body = body.split('&')
@@ -333,7 +333,7 @@ def register_peer_routes(app):
         finally:
             s.close()
 
-    @app.route('/get-channel-messages', methods=['GET', 'POST'])
+    @app.route('/get-channel-messages', methods=['POST'])
     def peer_get_channel_messages(headers, body):
         log_info(f"[Peer] get-channel-messages called with headers: {headers} and body: {body}")
         s = socket.socket()
