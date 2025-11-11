@@ -155,7 +155,7 @@ class Response():
             mime_type = None
         
         if mime_type is None:
-            if path.endswith('.html') or path == "/" or path == "/index.html" or path == "/login":
+            if isinstance(path, str) and (path.endswith('.html') or path == "/" or path == "/index.html" or path == "/login"):
                 mime_type = 'text/html'
         return mime_type or 'application/octet-stream'
 

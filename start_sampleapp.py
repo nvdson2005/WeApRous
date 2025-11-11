@@ -33,7 +33,7 @@ from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
 TRACKER_PORT = 9000  # Default tracker port
-PEER_PORT_RANGE = (9001, 9999)  # Random port range for peers
+PEER_PORT_RANGE = (9005, 9999)  # Random port range for peers
 
 # Global data structures
 # Peer connection management, has the format of {(ip, port): {ip: str, port: int, isUsed: bool, username: str}}

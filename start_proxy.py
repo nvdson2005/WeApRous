@@ -77,7 +77,7 @@ def parse_virtual_hosts(config_file, host_ip=None):
         proxy_map[host] = proxy_list
 
         # Find dist_policy if present
-        policy_match = re.search(r'dist_policy\s+(\w+)', block)
+        policy_match = re.search(r'dist_policy\s+(-\w+)', block)
         if policy_match:
             dist_policy_map = policy_match.group(1)
         else:

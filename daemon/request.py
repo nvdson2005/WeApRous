@@ -72,13 +72,12 @@ class Request():
             lines = request.splitlines()
             first_line = lines[0]
             method, path, version = first_line.split()
-            # print("[Request] Extracted request line METHOD {} PATH {} VERSION {}".format(method, path, version))
+            print("[Request] Extracted request line METHOD {} PATH {} VERSION {}".format(method, path, version))
 
             if path == '/':
                 path = '/index.html'
         except Exception:
-            return None, None
-
+            return "", "", ""
         return method, path, version
              
     def prepare_headers(self, request):
@@ -97,7 +96,6 @@ class Request():
         # Prepare the request line from the request header
         self.method, self.path, self.version = self.extract_request_line(request)
         print("[Request] {} path {} version {}".format(self.method, self.path, self.version))
-        
         if not routes == {}:
             self.routes = routes
             self.hook = routes.get((self.method, self.path))

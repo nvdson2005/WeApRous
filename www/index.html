@@ -13,7 +13,7 @@
                 margin: 0;
                 padding: 20px;
                 height: calc(100vh - 40px);
-                overflow: hidden; /* Ngăn body cuộn */
+                overflow: scroll; /* Ngăn body cuộn */
             }
 
             ul {
@@ -582,11 +582,12 @@
 
                     peers.forEach((p) => {
                         console.log(p);
+                        const username = p.username.replace(/\+/g, " ");
                         activePeersNames[p.ip + ":" + p.port] =
-                            p.username || "n/a";
+                            username|| "n/a";
                         const tr = document.createElement("tr");
                         tr.innerHTML = `<td>${escapeHtml(
-                            p.username || "n/a"
+                            username || "n/a"
                         )}</td>
                                 <td>${escapeHtml(p.ip || "")}</td>
                                 <td>${escapeHtml(p.port || "")}</td>
@@ -595,7 +596,7 @@
                                 )}" data-port="${escapeAttr(
                             p.port
                         )}" data-username="${escapeAttr(
-                            p.username || "n/a"
+                            username || "n/a"
                         )}">Connect</button></td>`;
 
                         // Gắn sự kiện cho nút "Connect"
@@ -778,7 +779,8 @@
                     }
                     msgs.forEach((msg) => {
                         // Check if this message is sent by me
-                        const isMine = msg.username === myUsername;
+                        const newUserName = msg.username.replace(/\+/g, " "); 
+                        const isMine = newUserName === myUsername;
                         const wrapperClass = isMine
                             ? "message-wrapper align-right"
                             : "message-wrapper";
@@ -791,7 +793,7 @@
                         const senderLabel = isMine
                             ? ""
                             : `<strong>${escapeHtml(
-                                  msg.username || "Unknown"
+                                  newUserName || "Unknown"
                               )}</strong><br>`;
                         dom.chatMessages.innerHTML += `
             <div class="${wrapperClass}">

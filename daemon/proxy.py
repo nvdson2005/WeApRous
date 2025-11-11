@@ -41,6 +41,12 @@ PROXY_PASS = {
     "app2.local": ('192.168.56.103', 9002),
 }
 
+def is_backend_alive(host, port, timeout=1):
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
 
 def forward_request(host, port, request):
     """
@@ -91,7 +97,7 @@ def resolve_routing_policy(hostname, routes):
     print(hostname)
     proxy_map, policy = routes.get(hostname,('127.0.0.1:9000','round-robin'))
     print(proxy_map)
-    print(policy)
+    print("dist_policy: " + policy)
 
     proxy_host = ''
     proxy_port = '9000'
@@ -99,23 +105,30 @@ def resolve_routing_policy(hostname, routes):
         if len(proxy_map) == 0:
             print("[Proxy] Emtpy resolved routing of hostname {}".format(hostname))
             print("Empty proxy_map result")
-            # TODO: implement the error handling for non mapped host
-            #       the policy is design by team, but it can be 
-            #       basic default host in your self-defined system
-            # Use a dummy host to raise an invalid connection
             proxy_host = '127.0.0.1'
             proxy_port = '9000'
-        elif len(value) == 1:
+        elif len(proxy_map) == 1:
             proxy_host, proxy_port = proxy_map[0].split(":", 2)
-        #elif: # apply the policy handling 
-        #   proxy_map
-        #   policy
+        elif policy == 'round-robin': # apply the policy handling 
+            global rr_counter
+            if 'rr_counter' not in globals():
+                rr_counter = 0
+            selected_proxy = proxy_map[rr_counter % len(proxy_map)]
+            while True:
+                if is_backend_alive(*selected_proxy.split(":", 2)):
+                    break
+                else:
+                    print("[Proxy] Backend {} is not alive, selecting next backend".format(selected_proxy))
+                    rr_counter += 1
+                    selected_proxy = proxy_map[rr_counter % len(proxy_map)]
+            rr_counter += 1
+            proxy_host, proxy_port = selected_proxy.split(":", 2)
         else:
             # Out-of-handle mapped host
             proxy_host = '127.0.0.1'
             proxy_port = '9000'
     else:
-        print("[Proxy] resolve route of hostname {} is a singulair to".format(hostname))
+        print("[Proxy] Single backend routing for hostname {}".format(hostname))
         proxy_host, proxy_port = proxy_map.split(":", 2)
 
     return proxy_host, proxy_port
