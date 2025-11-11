@@ -27,10 +27,13 @@ and can be configured via command-line arguments.
 import json
 import socket
 import argparse
+import random
 from daemon.database import login_user
 from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
+TRACKER_PORT = 9000  # Default tracker port
+PEER_PORT_RANGE = (9001, 9999)  # Random port range for peers
 
 # Global data structures
 # Peer connection management, has the format of {(ip, port): {ip: str, port: int, isUsed: bool, username: str}}
@@ -64,7 +67,7 @@ joined_channels = []
 received_messages = {} 
 
 # Tracker server IP and port
-TRACKER_IP = "127.0.0.1:8080"
+# TRACKER_IP = None 
 # TRACKER_IP = "192.168.1.26:8080"
 # TRACKER_IP = "10.229.186.44:8080"
 
@@ -602,18 +605,77 @@ def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
         log_warning("[Peer] No response from tracker")
     s.close()
 
+# if __name__ == "__main__":
+#     # Parse command-line arguments to configure server IP and port
+#     parser = argparse.ArgumentParser(prog='Backend', description='', epilog='Beckend daemon')
+#     parser.add_argument('--server-ip', default='0.0.0.0')
+#     parser.add_argument('--server-port', type=int, default=PORT)
+#     parser.add_argument('--role', choices=['tracker', 'peer'], default='peer')
+
+#     args = parser.parse_args()
+#     global ip, port, username
+#     ip = args.server_ip
+#     port = args.server_port
+#     username = "n/a"
+
+#     if args.role == 'tracker':
+#         register_tracker_routes(app)
+#         # Prepare and launch the RESTful application
+#         app.prepare_address(ip, port)
+#         app.run()
+#     else:
+#         register_peer_routes(app)
+#         register_with_tracker(TRACKER_IP.split(':')[0], TRACKER_IP.split(':')[1], ip, port, "n/a")
+#         # Prepare and launch the RESTful application
+#         app.prepare_address(ip, port)
+#         app.run()
+
 if __name__ == "__main__":
     # Parse command-line arguments to configure server IP and port
     parser = argparse.ArgumentParser(prog='Backend', description='', epilog='Beckend daemon')
-    parser.add_argument('--server-ip', default='0.0.0.0')
-    parser.add_argument('--server-port', type=int, default=PORT)
+    parser.add_argument('--host', default=None, help='Shared IP for both tracker and peer (e.g., 192.168.1.100)')
+    parser.add_argument('--server-ip', default=None, help='Server bind IP (overrides --host)')
+    parser.add_argument('--server-port', type=int, default=None, help='Server port (auto-generated for peer if not specified)')
+    parser.add_argument('--tracker-port', type=int, default=TRACKER_PORT, help='Tracker port (default: 8080)')
+    parser.add_argument('--tracker-ip', default=None, help='Full tracker address IP:PORT (overrides --host and --tracker-port)')
     parser.add_argument('--role', choices=['tracker', 'peer'], default='peer')
 
     args = parser.parse_args()
     global ip, port, username
-    ip = args.server_ip
-    port = args.server_port
+    global TRACKER_IP
+    
+    # Determine server IP: priority is --server-ip > --host > '0.0.0.0'
+    if args.server_ip:
+        ip = args.server_ip
+    elif args.host:
+        ip = args.host
+    else:
+        ip = '127.0.0.1'
+    
+    # Determine server port based on role
+    if args.role == 'tracker':
+        port = args.server_port if args.server_port else args.tracker_port
+    else:  # peer role
+        if args.server_port:
+            port = args.server_port
+        else:
+            # Auto-generate random port for peer
+            port = random.randint(*PEER_PORT_RANGE)
+            log_info(f"Auto-generated peer port: {port}")
+    
+    # Determine tracker address
+    if args.tracker_ip:
+        TRACKER_IP = args.tracker_ip
+    elif args.host:
+        TRACKER_IP = f"{args.host}:{args.tracker_port}"
+    else:
+        TRACKER_IP = f"127.0.0.1:{args.tracker_port}"
+    
     username = "n/a"
+    
+    log_info(f"Role: {args.role}, Server IP: {ip}, Server Port: {port}")
+    if args.role == 'peer':
+        log_info(f"Tracker address: {TRACKER_IP}")
 
     if args.role == 'tracker':
         register_tracker_routes(app)

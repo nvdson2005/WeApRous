@@ -559,6 +559,13 @@ class Response():
 
     #     return self._header + self._content
     def build_response(self, request, hook_result=None):
+        """
+        Builds a full HTTP response including headers and content based on the request.
+
+        :params request (class:`Request <Request>`): incoming request object.
+
+        :rtype bytes: complete HTTP response using prepared headers and content.
+        """
         path = request.path
         method = request.method
         log_info("[Response] building response for path {}".format(path))
@@ -621,8 +628,8 @@ class Response():
             path = "login.html"
             mime_type = 'text/html'
         elif path == "/" or path == "/index.html":
-            if request.cookies != 'auth=true':
-                return self.build_unauthorized()
+            # if request.cookies != 'auth=true':
+            #     return self.build_unauthorized()
             base_dir = self.prepare_content_type(mime_type='text/html')
             path = "index.html"
             mime_type = 'text/html'
