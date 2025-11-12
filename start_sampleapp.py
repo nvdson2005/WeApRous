@@ -27,10 +27,13 @@ and can be configured via command-line arguments.
 import json
 import socket
 import argparse
+import random
 from daemon.database import login_user
 from daemon.weaprous import WeApRous
 
 PORT = 8000  # Default port
+TRACKER_PORT = 9000  # Default tracker port
+PEER_PORT_RANGE = (9005, 9999)  # Random port range for peers
 
 # Global data structures
 # Peer connection management, has the format of {(ip, port): {ip: str, port: int, isUsed: bool, username: str}}
@@ -64,7 +67,9 @@ joined_channels = []
 received_messages = {} 
 
 # Tracker server IP and port
-TRACKER_IP = "127.0.0.1:8080"
+# TRACKER_IP = None 
+# TRACKER_IP = "192.168.1.26:8080"
+# TRACKER_IP = "10.229.186.44:8080"
 
 # ANSI color log helpers
 ANSI_RED = "\033[31m"
@@ -91,8 +96,9 @@ def register_tracker_routes(app):
     @app.route('/get-all-channels', methods=['GET'])
     def tracker_get_all_channels(headers, body):
         log_info(f"[Tracker] Get all channels called with headers: {headers} and body: {body}")
-        return_data = json.dumps(list(channel_messages.keys()))
-        return return_data
+        # return_data = json.dumps(list(channel_messages.keys()))
+        # return return_data
+        return list(channel_messages.keys())
     
     @app.route('/join-channel', methods=['POST'])
     def tracker_join_channel(headers, body):
@@ -128,7 +134,7 @@ def register_tracker_routes(app):
         log_info(f"[Tracker] Current channel members for {channel_name}: {channel_messages[channel_name]['members']}")
         return {"status": "success", "message": f"Joined channel {channel_name}"} 
 
-    @app.route('/get-channel-messages', methods=['GET'])
+    @app.route('/get-channel-messages', methods=['POST'])
     def tracker_get_channel_messages(headers, body):
         log_info(f"[Tracker] get-channel-messages called with headers: {headers} and body: {body}")
         body = body.split('&')
@@ -289,12 +295,11 @@ def register_peer_routes(app):
         try:
             response = s.recv(4096).decode()
             body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
-            body = json.loads(body) if body else []
+            body = json.loads(body) if body else {}
             if 'channels' not in body:
                 return None
-            body = body['channels']
             log_debug(f"[Peer] Received channel list: {body}")
-            return json.dumps(body)
+            return body['channels']
         except socket.error:
             log_warning("[Peer] No response from tracker")
             return None
@@ -331,20 +336,21 @@ def register_peer_routes(app):
         finally:
             s.close()
 
-    @app.route('/get-channel-messages', methods=['GET'])
+    @app.route('/get-channel-messages', methods=['POST'])
     def peer_get_channel_messages(headers, body):
         log_info(f"[Peer] get-channel-messages called with headers: {headers} and body: {body}")
         s = socket.socket()
         s.connect((TRACKER_IP.split(':')[0], int(TRACKER_IP.split(':')[1]))) 
         channel_name = body.split('=')[1]
         body = f"channel_name={channel_name}"
-        req = f"GET /get-channel-messages HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
+        req = f"POST /get-channel-messages HTTP/1.1\r\nHost: {TRACKER_IP}\r\nContent-Length: {len(body)}\r\n\r\n{body}"
         s.sendall(req.encode())
         try:
             response = s.recv(4096).decode()
             body = response.split('\r\n\r\n', 1)[1] if '\r\n\r\n' in response else ''
             log_debug(f"[Peer] Get channel messages response: {body}")
-            return body 
+            # return body 
+            return json.loads(body) if body else {}
         except socket.error:
             log_warning("[Peer] No response from tracker")
             return {"status": "error", "message": "No response from tracker"}
@@ -488,11 +494,12 @@ def register_peer_routes(app):
         message = params.get('message', '')
         conn_key = (target_ip, target_port)
         header = f"POST /receive-message HTTP/1.1\r\nHost: {target_ip}:{target_port}\r\nContent-Length: {len(message)}\r\n\r\n"
-        global ip, port
+        global ip, port, username
         body = {
             "message": message,
             "sender_ip": ip,
-            "sender_port": port
+            "sender_port": port,
+            "username": username
         }
         msg_data = header + json.dumps(body)
         try:
@@ -505,35 +512,6 @@ def register_peer_routes(app):
             return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
         except Exception as e:
             return {"status": "error", "message": f"Cannot connect/send: {e}"}
-        # if not s:
-        #     # No connection, create one
-        #     try:
-        #         s = socket.socket()
-        #         s.connect((target_ip, target_port))
-        #         peer_connections[conn_key] = s
-        #     except Exception as e:
-        #         return {"status": "error", "message": f"Cannot connect: {e}"}
-        # try:
-        #     s.sendall(msg_data.encode())
-        #     return {"status": "success", "message": f"Sent to {target_ip}:{target_port}"}
-        # except (BrokenPipeError, OSError):
-        #     # Socket closed, re-open and retry
-        #     try:
-        #         s.close()
-        #     except Exception:
-        #         pass
-        #     try:
-        #         new_s = socket.socket()
-        #         new_s.connect((target_ip, target_port))
-        #         peer_connections[conn_key] = new_s
-        #         new_s.sendall(msg_data.encode())
-        #         return {"status": "success", "message": f"Reconnected and sent to {target_ip}:{target_port}"}
-        #     except Exception as e:
-        #         return {"status": "error", "message": f"Reconnect failed: {e}"}
-        # except Exception as e:
-        #     return {"status": "error", "message": str(e)}
-        # finally:
-        #     print(f"[Peer] send-peer {headers=} {body=}")
 
     @app.route('/receive-message', methods=['POST'])
     def receive_message(headers, body):
@@ -627,18 +605,77 @@ def register_with_tracker(tracker_ip, tracker_port, my_ip, my_port, username):
         log_warning("[Peer] No response from tracker")
     s.close()
 
+# if __name__ == "__main__":
+#     # Parse command-line arguments to configure server IP and port
+#     parser = argparse.ArgumentParser(prog='Backend', description='', epilog='Beckend daemon')
+#     parser.add_argument('--server-ip', default='0.0.0.0')
+#     parser.add_argument('--server-port', type=int, default=PORT)
+#     parser.add_argument('--role', choices=['tracker', 'peer'], default='peer')
+
+#     args = parser.parse_args()
+#     global ip, port, username
+#     ip = args.server_ip
+#     port = args.server_port
+#     username = "n/a"
+
+#     if args.role == 'tracker':
+#         register_tracker_routes(app)
+#         # Prepare and launch the RESTful application
+#         app.prepare_address(ip, port)
+#         app.run()
+#     else:
+#         register_peer_routes(app)
+#         register_with_tracker(TRACKER_IP.split(':')[0], TRACKER_IP.split(':')[1], ip, port, "n/a")
+#         # Prepare and launch the RESTful application
+#         app.prepare_address(ip, port)
+#         app.run()
+
 if __name__ == "__main__":
     # Parse command-line arguments to configure server IP and port
     parser = argparse.ArgumentParser(prog='Backend', description='', epilog='Beckend daemon')
-    parser.add_argument('--server-ip', default='0.0.0.0')
-    parser.add_argument('--server-port', type=int, default=PORT)
+    parser.add_argument('--host', default=None, help='Shared IP for both tracker and peer (e.g., 192.168.1.100)')
+    parser.add_argument('--server-ip', default=None, help='Server bind IP (overrides --host)')
+    parser.add_argument('--server-port', type=int, default=None, help='Server port (auto-generated for peer if not specified)')
+    parser.add_argument('--tracker-port', type=int, default=TRACKER_PORT, help='Tracker port (default: 8080)')
+    parser.add_argument('--tracker-ip', default=None, help='Full tracker address IP:PORT (overrides --host and --tracker-port)')
     parser.add_argument('--role', choices=['tracker', 'peer'], default='peer')
 
     args = parser.parse_args()
     global ip, port, username
-    ip = args.server_ip
-    port = args.server_port
+    global TRACKER_IP
+    
+    # Determine server IP: priority is --server-ip > --host > '0.0.0.0'
+    if args.server_ip:
+        ip = args.server_ip
+    elif args.host:
+        ip = args.host
+    else:
+        ip = '127.0.0.1'
+    
+    # Determine server port based on role
+    if args.role == 'tracker':
+        port = args.server_port if args.server_port else args.tracker_port
+    else:  # peer role
+        if args.server_port:
+            port = args.server_port
+        else:
+            # Auto-generate random port for peer
+            port = random.randint(*PEER_PORT_RANGE)
+            log_info(f"Auto-generated peer port: {port}")
+    
+    # Determine tracker address
+    if args.tracker_ip:
+        TRACKER_IP = args.tracker_ip
+    elif args.host:
+        TRACKER_IP = f"{args.host}:{args.tracker_port}"
+    else:
+        TRACKER_IP = f"127.0.0.1:{args.tracker_port}"
+    
     username = "n/a"
+    
+    log_info(f"Role: {args.role}, Server IP: {ip}, Server Port: {port}")
+    if args.role == 'peer':
+        log_info(f"Tracker address: {TRACKER_IP}")
 
     if args.role == 'tracker':
         register_tracker_routes(app)

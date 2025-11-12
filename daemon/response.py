@@ -155,7 +155,7 @@ class Response():
             mime_type = None
         
         if mime_type is None:
-            if path.endswith('.html') or path == "/" or path == "/index.html" or path == "/login":
+            if isinstance(path, str) and (path.endswith('.html') or path == "/" or path == "/index.html" or path == "/login"):
                 mime_type = 'text/html'
         return mime_type or 'application/octet-stream'
 
@@ -259,11 +259,6 @@ class Response():
                 "Cache-Control": "no-cache",
                 "Content-Type": "{}".format(self.headers['Content-Type']),
                 "Content-Length": "{}".format(len(self._content)),
-#                "Cookie": "{}".format(reqhdr.get("Cookie", "sessionid=xyz789")), #dummy cooki
-        #
-        # TODO prepare the request authentication
-        #
-	# self.auth = ...
                 "Date": "{}".format(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")),
                 "Max-Forward": "10",
                 "Pragma": "no-cache",
@@ -275,15 +270,6 @@ class Response():
         for k, v in rsphdr.items():
             headers[k] = v
 
-        # Header text alignment
-            #
-            #  TODO: implement the header building to create formated
-            #        header from the provied headers
-            #
-        #
-        # TODO prepare the request authentication
-        #
-	# self.auth = ...
         fmt_header = "HTTP/1.1 200 OK\r\n"
         for k, v in headers.items():
             fmt_header += "{}: {}\r\n".format(k, v)
@@ -318,7 +304,7 @@ class Response():
 
         return (
                 "HTTP/1.1 401 Unauthorized\r\n"
-                "WWW-Authenticate: Basic realm=\"Access to the site\"\r\n"
+                # "WWW-Authenticate: Basic realm=\"Access to the site\"\r\n"
                 "Content-Type: text/html\r\n"
                 "Content-Length: 16\r\n"
                 "Cache-Control: max-age=86000\r\n"
@@ -408,6 +394,170 @@ class Response():
                 "404 Not Found"
             ).encode('utf-8')
 
+    # def build_response(self, request, hook_result=None):
+    #     """
+    #     Builds a full HTTP response including headers and content based on the request.
+
+    #     :params request (class:`Request <Request>`): incoming request object.
+
+    #     :rtype bytes: complete HTTP response using prepared headers and content.
+    #     """
+
+    #     path = request.path
+    #     log_info("[Response] building response for path {}".format(path))
+    #     mime_type = self.get_mime_type(path)
+    #     log_info("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
+
+    #     base_dir = ""
+    #     if path == "/get-channel-messages":
+    #         if request.method == "GET":
+    #             if hook_result is not None:
+    #                 return self.build_json_response(json.dumps(hook_result))
+    #             else:
+    #                 return self.build_internal_server_error()
+    #     if path == "/send-channel-message":
+    #         if request.method == "POST":
+    #             if hook_result is not None:
+    #                 return self.build_json_response(json.dumps(hook_result))
+    #             else:
+    #                 return self.build_internal_server_error()
+    #     if path == "/get-joined-channels":
+    #         if request.method == "GET":
+    #             if hook_result is not None:
+    #                 return self.build_json_response('{ "status": "success", "channels": %s }' % json.dumps(hook_result))
+    #             else:
+    #                 return self.build_internal_server_error()
+    #     if path == "/get-all-channels":
+    #         if request.method == "GET":
+    #             if hook_result is not None:
+    #                 return self.build_json_response('{"status": "success", "channels": %s}' % json.dumps(hook_result)) 
+    #             else:
+    #                 return self.build_internal_server_error()
+    #     if path == "/join-channel":
+    #         print("[Response] join-channel hook_result: {}".format(hook_result))
+    #         if hook_result is not None:
+    #             return self.build_json_response(json.dumps(hook_result))
+    #     if path == "/submit-username": 
+    #         if hook_result is not None:
+    #             if hook_result == True:
+    #                 return self.build_json_response('{"status": "success"}')
+    #             elif hook_result == False:
+    #                 return self.build_json_response('{"status": "failure"}')
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/broadcast-peer" and request.method == "POST":
+    #         if hook_result is not None:
+    #             if 'status' in hook_result:
+    #                 if hook_result['status'] == 'success':
+    #                     return self.build_json_response('{"status": "success", "message": "Broadcast sent"}')
+    #                 else:
+    #                     return self.build_internal_server_error()
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/get-received-messages" or path == "/get-connected-peers":
+    #         if request.method == "GET":
+    #             return self.build_json_response(hook_result)
+    #     if path == "/login":
+    #         if request.method == "GET":
+    #             base_dir = self.prepare_content_type(mime_type = 'text/html')
+    #             path = "login.html"
+    #             mime_type = 'text/html'
+    #         elif request.method == "POST":
+    #             if hook_result is not None:
+    #                 if 'set_cookie' in hook_result:
+    #                     if hook_result['set_cookie'] == 'auth=true':
+    #                         if 'chosen_peer' in hook_result and hook_result['chosen_peer'] is not None:
+    #                             return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
+    #                         else:
+    #                             return self.build_internal_server_error()
+    #                     else:
+    #                         return self.build_unauthorized()
+    #             else:
+    #                 return self.build_internal_server_error()
+    #     if path == "/register-peer-pool":
+    #         if hook_result is not None:
+    #             if hook_result == True:
+    #                 return self.build_json_response('{"status": "success"}')
+    #             elif hook_result == False:
+    #                 return self.build_internal_server_error()
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/get-list":
+    #         if request.method == "GET":
+    #             return self.build_json_response(hook_result)
+    #     if path == "/submit-info":
+    #         if hook_result is not None:
+    #             if hook_result == True:
+    #                 return self.build_json_response('{"status": "success"}')
+    #             elif hook_result == False:
+    #                 return self.build_json_response('{"status": "failure"}')
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/connect-peer":
+    #         if hook_result is not None:
+    #             if 'status' in hook_result:
+    #                 if hook_result['status'] == 'success':
+    #                     return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+    #                 else:
+    #                     return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/send-peer":
+    #         if hook_result is not None:
+    #             if 'status' in hook_result:
+    #                 if hook_result['status'] == 'success':
+    #                     return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+    #                 else:
+    #                     # return self.build_notfound_with_json('{"status": "error", "message": "%s"}' % hook_result['message'])
+    #                     return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
+    #         else:
+    #             return self.build_internal_server_error()
+    #     if path == "/receive-message":
+    #         if hook_result is not None:
+    #             if 'status' in hook_result:
+    #                 if hook_result['status'] == 'success':
+    #                     return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
+    #                 else:
+    #                     return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
+    #     if hook_result is not None:
+    #         if 'set_cookie' in hook_result:
+    #             if hook_result['set_cookie'] == 'auth=true':
+    #                 return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
+    #                 # self.headers['Set-Cookie'] = hook_result['set_cookie']
+    #                 # path = hook_result['content_path']
+    #                 # mime_type = self.get_mime_type(path)
+    #                 # base_dir = self.prepare_content_type(mime_type = mime_type)
+    #             else:
+    #                 return self.build_unauthorized()
+    #     else:
+    #         #If HTML, parse and serve embedded objects
+    #         if (path == "/login" or path == "login.html") and request.method == "GET":
+    #             base_dir = self.prepare_content_type(mime_type = 'text/html')
+    #             path = "login.html"
+    #             mime_type = 'text/html'
+    #         elif path == "/" or path == "/index.html":
+    #             if request.cookies != 'auth=true':
+    #                 return self.build_unauthorized()
+    #             base_dir = self.prepare_content_type(mime_type = 'text/html')
+    #             path = "index.html"
+    #             mime_type = 'text/html'
+    #         elif path.endswith('favicon.ico'):
+    #             mime_type = 'image/x-icon'
+    #             base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
+    #             self.headers['Content-Type']='image/x-icon'
+    #         elif path.endswith('.html') or mime_type == 'text/html':
+    #             base_dir = self.prepare_content_type(mime_type = 'text/html')
+    #         elif mime_type == 'text/css':
+    #             base_dir = self.prepare_content_type(mime_type = 'text/css')
+    #         elif mime_type == 'image/png' or mime_type == 'image/jpeg' or mime_type == 'image/gif' or mime_type == 'image/x-icon':
+    #             base_dir = self.prepare_content_type(mime_type='image/png')
+    #         else:
+    #             return self.build_notfound()
+
+    #     c_len, self._content = self.build_content(path, base_dir)
+    #     self._header = self.build_response_header(request)
+
+    #     return self._header + self._content
     def build_response(self, request, hook_result=None):
         """
         Builds a full HTTP response including headers and content based on the request.
@@ -416,162 +566,86 @@ class Response():
 
         :rtype bytes: complete HTTP response using prepared headers and content.
         """
-
         path = request.path
+        method = request.method
         log_info("[Response] building response for path {}".format(path))
         mime_type = self.get_mime_type(path)
-        log_info("[Response] {} path {} mime_type {}".format(request.method, request.path, mime_type))
+        log_info("[Response] {} path {} mime_type {}".format(method, path, mime_type))
 
-        base_dir = ""
-        if path == "/get-channel-messages":
-            if request.method == "GET":
-                if hook_result is not None:
-                    return self.build_json_response(json.dumps(hook_result))
-                else:
-                    return self.build_internal_server_error()
-        if path == "/send-channel-message":
-            if request.method == "POST":
-                if hook_result is not None:
-                    return self.build_json_response(json.dumps(hook_result))
-                else:
-                    return self.build_internal_server_error()
-        if path == "/get-joined-channels":
-            if request.method == "GET":
-                if hook_result is not None:
-                    return self.build_json_response('{ "status": "success", "channels": %s }' % json.dumps(hook_result))
-                else:
-                    return self.build_internal_server_error()
-        if path == "/get-all-channels":
-            if request.method == "GET":
-                if hook_result is not None:
-                    return self.build_json_response('{"status": "success", "channels": %s}' % hook_result) 
-                else:
-                    return self.build_internal_server_error()
-        if path == "/join-channel":
-            print("[Response] join-channel hook_result: {}".format(hook_result))
-            if hook_result is not None:
-                return self.build_json_response(json.dumps(hook_result))
-        if path == "/submit-username": 
-            if hook_result is not None:
-                if hook_result == True:
-                    return self.build_json_response('{"status": "success"}')
-                elif hook_result == False:
-                    return self.build_json_response('{"status": "failure"}')
-            else:
-                return self.build_internal_server_error()
-        if path == "/broadcast-peer" and request.method == "POST":
-            if hook_result is not None:
-                if 'status' in hook_result:
-                    if hook_result['status'] == 'success':
-                        return self.build_json_response('{"status": "success", "message": "Broadcast sent"}')
-                    else:
-                        return self.build_internal_server_error()
-            else:
-                return self.build_internal_server_error()
-        if path == "/get-received-messages" or path == "/get-connected-peers":
-            if request.method == "GET":
-                return self.build_json_response(hook_result)
+        # --- API Endpoints ---
+        # Each API endpoint is handled with an early return
+        api_routes = {
+            ("/get-channel-messages", "POST"): lambda: self.build_json_response(json.dumps(hook_result)) if hook_result else self.build_internal_server_error(),
+            ("/send-channel-message", "POST"): lambda: self.build_json_response(json.dumps(hook_result)) if hook_result else self.build_internal_server_error(),
+            ("/get-joined-channels", "GET"): lambda: self.build_json_response('{ "status": "success", "channels": %s }' % json.dumps(hook_result)) if hook_result != None else self.build_internal_server_error(),
+            ("/get-all-channels", "GET"): lambda: self.build_json_response('{"status": "success", "channels": %s}' % json.dumps(hook_result)) if hook_result else self.build_internal_server_error(),
+            ("/join-channel", "POST"): lambda: self.build_json_response(json.dumps(hook_result)) if hook_result else self.build_internal_server_error(),
+            ("/submit-username", "POST"): lambda: self.build_json_response('{"status": "success"}') if hook_result == True else self.build_json_response('{"status": "failure"}') if hook_result == False else self.build_internal_server_error(),
+            ("/broadcast-peer", "POST"): lambda: self.build_json_response('{"status": "success", "message": "Broadcast sent"}') if hook_result and hook_result.get('status') == 'success' else self.build_internal_server_error(),
+            ("/get-received-messages", "GET"): lambda: self.build_json_response(hook_result),
+            ("/get-connected-peers", "GET"): lambda: self.build_json_response(hook_result),
+            ("/register-peer-pool", "POST"): lambda: self.build_json_response('{"status": "success"}') if hook_result == True else self.build_internal_server_error(),
+            ("/get-list", "GET"): lambda: self.build_json_response(hook_result),
+            ("/submit-info", "POST"): lambda: self.build_json_response('{"status": "success"}') if hook_result == True else self.build_json_response('{"status": "failure"}') if hook_result == False else self.build_internal_server_error(),
+            ("/connect-peer", "POST"): lambda: self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message']) if hook_result and hook_result.get('status') == 'success' else self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message']) if hook_result else self.build_internal_server_error(),
+            ("/send-peer", "POST"): lambda: self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message']) if hook_result and hook_result.get('status') == 'success' else self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message']) if hook_result else self.build_internal_server_error(),
+            ("/receive-message", "POST"): lambda: self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message']) if hook_result and hook_result.get('status') == 'success' else self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message']) if hook_result else self.build_internal_server_error(),
+        }
+
+        api_key = (path, method)
+        if api_key in api_routes:
+            return api_routes[api_key]()
+
+        # --- Special Handling for /login ---
         if path == "/login":
-            if request.method == "GET":
-                base_dir = self.prepare_content_type(mime_type = 'text/html')
+            if method == "GET":
+                base_dir = self.prepare_content_type(mime_type='text/html')
                 path = "login.html"
                 mime_type = 'text/html'
-            elif request.method == "POST":
-                if hook_result is not None:
-                    if 'set_cookie' in hook_result:
-                        if hook_result['set_cookie'] == 'auth=true':
-                            if 'chosen_peer' in hook_result and hook_result['chosen_peer'] is not None:
-                                return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
-                            else:
-                                return self.build_internal_server_error()
+            elif method == "POST":
+                if hook_result is not None and 'set_cookie' in hook_result:
+                    if hook_result['set_cookie'] == 'auth=true':
+                        if 'chosen_peer' in hook_result and hook_result['chosen_peer'] is not None:
+                            return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
                         else:
-                            return self.build_unauthorized()
+                            return self.build_internal_server_error()
+                    else:
+                        return self.build_unauthorized()
                 else:
                     return self.build_internal_server_error()
-        if path == "/register-peer-pool":
-            if hook_result is not None:
-                if hook_result == True:
-                    return self.build_json_response('{"status": "success"}')
-                elif hook_result == False:
-                    return self.build_internal_server_error()
+
+        # --- Cookie-based Redirects ---
+        if hook_result is not None and 'set_cookie' in hook_result:
+            if hook_result['set_cookie'] == 'auth=true':
+                return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
             else:
-                return self.build_internal_server_error()
-        if path == "/get-list":
-            if request.method == "GET":
-                return self.build_json_response(hook_result)
-        if path == "/submit-info":
-            if hook_result is not None:
-                if hook_result == True:
-                    return self.build_json_response('{"status": "success"}')
-                elif hook_result == False:
-                    return self.build_json_response('{"status": "failure"}')
-            else:
-                return self.build_internal_server_error()
-        if path == "/connect-peer":
-            if hook_result is not None:
-                if 'status' in hook_result:
-                    if hook_result['status'] == 'success':
-                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
-                    else:
-                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
-            else:
-                return self.build_internal_server_error()
-        if path == "/send-peer":
-            if hook_result is not None:
-                if 'status' in hook_result:
-                    if hook_result['status'] == 'success':
-                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
-                    else:
-                        # return self.build_notfound_with_json('{"status": "error", "message": "%s"}' % hook_result['message'])
-                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
-            else:
-                return self.build_internal_server_error()
-        if path == "/receive-message":
-            if hook_result is not None:
-                if 'status' in hook_result:
-                    if hook_result['status'] == 'success':
-                        return self.build_json_response('{"status": "success", "message": "%s"}' % hook_result['message'])
-                    else:
-                        return self.build_json_response('{"status": "error", "message": "%s"}' % hook_result['message'])
-        if hook_result is not None:
-            if 'set_cookie' in hook_result:
-                if hook_result['set_cookie'] == 'auth=true':
-                    return self.build_redirect(location=hook_result['redirect'], has_cookie=True)
-                    # self.headers['Set-Cookie'] = hook_result['set_cookie']
-                    # path = hook_result['content_path']
-                    # mime_type = self.get_mime_type(path)
-                    # base_dir = self.prepare_content_type(mime_type = mime_type)
-                else:
-                    return self.build_unauthorized()
+                return self.build_unauthorized()
+
+        # --- Static File Serving ---
+        # If HTML, parse and serve embedded objects
+        if (path == "/login" or path == "login.html") and method == "GET":
+            base_dir = self.prepare_content_type(mime_type='text/html')
+            path = "login.html"
+            mime_type = 'text/html'
+        elif path == "/" or path == "/index.html":
+            # if request.cookies != 'auth=true':
+            #     return self.build_unauthorized()
+            base_dir = self.prepare_content_type(mime_type='text/html')
+            path = "index.html"
+            mime_type = 'text/html'
+        elif path.endswith('favicon.ico'):
+            mime_type = 'image/x-icon'
+            base_dir = self.prepare_content_type(mime_type='image/x-icon')
+            self.headers['Content-Type'] = 'image/x-icon'
+        elif path.endswith('.html') or mime_type == 'text/html':
+            base_dir = self.prepare_content_type(mime_type='text/html')
+        elif mime_type == 'text/css':
+            base_dir = self.prepare_content_type(mime_type='text/css')
+        elif mime_type in ['image/png', 'image/jpeg', 'image/gif', 'image/x-icon']:
+            base_dir = self.prepare_content_type(mime_type='image/png')
         else:
-            #If HTML, parse and serve embedded objects
-            if (path == "/login" or path == "login.html") and request.method == "GET":
-                base_dir = self.prepare_content_type(mime_type = 'text/html')
-                path = "login.html"
-                mime_type = 'text/html'
-            elif path == "/" or path == "/index.html":
-                if request.cookies != 'auth=true':
-                    return self.build_unauthorized()
-                base_dir = self.prepare_content_type(mime_type = 'text/html')
-                path = "index.html"
-                mime_type = 'text/html'
-            elif path.endswith('favicon.ico'):
-                mime_type = 'image/x-icon'
-                base_dir = self.prepare_content_type(mime_type = 'image/x-icon')
-                self.headers['Content-Type']='image/x-icon'
-            elif path.endswith('.html') or mime_type == 'text/html':
-                base_dir = self.prepare_content_type(mime_type = 'text/html')
-            elif mime_type == 'text/css':
-                base_dir = self.prepare_content_type(mime_type = 'text/css')
-            elif mime_type == 'image/png' or mime_type == 'image/jpeg' or mime_type == 'image/gif' or mime_type == 'image/x-icon':
-                base_dir = self.prepare_content_type(mime_type='image/png')
-            #
-            # TODO: add support objects
-            #
-            else:
-                return self.build_notfound()
+            return self.build_notfound()
 
         c_len, self._content = self.build_content(path, base_dir)
         self._header = self.build_response_header(request)
-
         return self._header + self._content

@@ -28,26 +28,28 @@ import argparse
 from daemon import create_backend
 
 # Default port number used if none is specified via command-line arguments.
-PORT = 9000 
+PORT = 9000
 
-if __name__ == "__main__":
+
+def main():
     """
     Entry point for launching the backend server.
 
-    This block parses command-line arguments to determine the server's IP address
-    and port. It then calls `create_backend(ip, port)` to start the RESTful
+    Parses command-line arguments to determine the server's IP address
+    and port, then calls create_backend(ip, port) to start the RESTful
     application server.
 
-    :arg --server-ip (str): IP address to bind the server (default: 127.0.0.1).
-    :arg --server-port (int): Port number to bind the server (default: 9000).
+    Command-line Arguments:
+        --server-ip (str): IP address to bind the server (default: 0.0.0.0)
+        --server-port (int): Port number to bind the server (default: 9000)
     """
-
     parser = argparse.ArgumentParser(
         prog='Backend',
         description='Start the backend process',
         epilog='Backend daemon for http_deamon application'
     )
-    parser.add_argument('--server-ip',
+    parser.add_argument(
+        '--server-ip',
         type=str,
         default='0.0.0.0',
         help='IP address to bind the server. Default is 0.0.0.0'
@@ -56,11 +58,15 @@ if __name__ == "__main__":
         '--server-port',
         type=int,
         default=PORT,
-        help='Port number to bind the server. Default is {}.'.format(PORT)
+        help=f'Port number to bind the server. Default is {PORT}.'
     )
- 
+
     args = parser.parse_args()
     ip = args.server_ip
     port = args.server_port
 
     create_backend(ip, port)
+
+
+if __name__ == "__main__":
+    main()

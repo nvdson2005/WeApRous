@@ -107,6 +107,17 @@ class HttpAdapter:
         msg = conn.recv(1024).decode()
         # print("MSG: ", msg)
         req.prepare(msg, routes)
+
+        # For all path excepts /login, check for authentication
+        if req.path == "/" or req.path == "/index.html":
+            cookies = self.extract_cookies(req, resp)
+            auth_cookie = cookies.get("auth", None)
+            if auth_cookie != "true" and auth_cookie is not True:
+                print("[HttpAdapter] Unauthorized access attempt to path {}".format(req.path))
+                response = resp.build_unauthorized()
+                conn.sendall(response)
+                conn.close()
+                return
         # Add connection address to request headers
         req.headers['x-connection-ip'] = addr[0]  # IP address
         req.headers['x-connection-port'] = str(addr[1])  # Port number
@@ -127,7 +138,7 @@ class HttpAdapter:
         conn.sendall(response)
         conn.close()
 
-    @property
+    # @property
     def extract_cookies(self, req, resp):
         """
         Build cookies from the :class:`Request <Request>` headers.
@@ -137,12 +148,17 @@ class HttpAdapter:
         :rtype: cookies - A dictionary of cookie key-value pairs.
         """
         cookies = {}
-        for header in headers:
-            if header.startswith("Cookie:"):
-                cookie_str = header.split(":", 1)[1].strip()
-                for pair in cookie_str.split(";"):
-                    key, value = pair.strip().split("=")
-                    cookies[key] = value
+        # cookie_header = req.headers.get("cookie", "")
+        # if cookie_header:
+        #     cookie_pairs = cookie_header.split("; ")
+        #     for pair in cookie_pairs:
+        #         if "=" in pair:
+        #             key, value = pair.split("=", 1)
+        #             cookies[key] = value
+        if isinstance(req.cookies, CaseInsensitiveDict):
+            cookie_items = req.cookies.items()
+            for key, value in cookie_items:
+                cookies[key] = value
         return cookies
 
     def build_response(self, req, resp):
@@ -212,6 +228,14 @@ class HttpAdapter:
         
         :param request: :class:`Request <Request>` to add headers to.
         """
+        pass
+
+    def add_response_headers(self, response, set_cookie=None):
+        """
+        Add headers to the response.
+        """
+        if set_cookie:
+            response.headers["Set-Cookie"] = set_cookie
         pass
 
     def build_proxy_headers(self, proxy):
